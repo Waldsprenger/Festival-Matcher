@@ -64,7 +64,7 @@ st.markdown("""
         font-size: 1.1em;
     }
 
-    /* Favoriten Band Badge (Goldene Hervorhebung) */
+    /* Favoriten Band Badge (Goldener Hintergrund ohne Stern) */
     .fav-band-badge {
         background-color: #FFD700;
         color: #000000;
@@ -235,7 +235,7 @@ else:
     start_date_filter = st.sidebar.date_input("Festivals ab Datum:", value=today)
 
     st.sidebar.header("🎯 2. Band-Gewichtung")
-    st.sidebar.markdown("Bands in deiner Favoriten-Liste zählen **doppelt (2x)** und werden **gold hervorgehoben**.")
+    st.sidebar.markdown("Bands in deiner Favoriten-Liste zählen **doppelt (2x)** und werden **gold hinterlegt**.")
 
     # --- HAUPTBEREICH: BANDAUSWAHL ---
     st.subheader("🎵 Wähle deine Bands aus")
@@ -250,7 +250,7 @@ else:
     double_weighted_norm_bands = []
     if selected_norm_bands:
         double_weighted_norm_bands = st.multiselect(
-            "⭐ Favoriten (doppelt gewichtet & hervorgehoben):",
+            "Favoriten (doppelt gewichtet & gold hinterlegt):",
             options=selected_norm_bands,
             format_func=lambda x: display_bands_map[x],
             placeholder="Wähle deine absoluten Favoriten..."
@@ -298,7 +298,7 @@ else:
                         
                         band_display_name = display_bands_map[b]
                         if is_fav:
-                            matched_bands_html.append(f'<span class="fav-band-badge">⭐ {band_display_name}</span>')
+                            matched_bands_html.append(f'<span class="fav-band-badge">{band_display_name}</span>')
                         else:
                             matched_bands_html.append(f'<span class="normal-band-badge">{band_display_name}</span>')
 
@@ -343,7 +343,6 @@ else:
                     dist_str = f"ca. {item['distance_km']} km" if item['distance_km'] is not None else "N/A"
                     price_str = f"{item['price_val']} €" if item['price_val'] is not None else f.get('preis', 'N/A')
 
-                    # DIE ÄNDERUNG: expanded=True schaltet alle Karten direkt ausgeklappt frei
                     with st.expander(f"🎸 {f['name']} — {match_pct}% Match ({item['matched_count']} Bands)", expanded=True):
                         st.markdown(f"### {f['name']} &nbsp; {badge_html}", unsafe_allow_html=True)
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -362,7 +361,7 @@ else:
                                 st.markdown(f"👉 [**Zur offiziellen Festival-Website**]({f['webseite']})")
 
                         with col2:
-                            st.markdown("🎯 **Gefundene Bands (⭐ = Favorit):**")
+                            st.markdown("🎯 **Gefundene Bands:**")
                             bands_html_str = " ".join(item["matched_bands_html"])
                             st.markdown(bands_html_str, unsafe_allow_html=True)
                             st.markdown("<br>", unsafe_allow_html=True)
@@ -374,7 +373,10 @@ else:
 st.markdown("<br><hr>", unsafe_allow_html=True)
 st.markdown(
     f"<div style='text-align: center; color: #777777; font-size: 0.85em;'>"
-    f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions 🤘"
+    f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions 🤘<br>"
+    f"<i>Hinweis: Alle Angaben zu Preisen, Terminen und Lineups sind ohne Gewähr. Für die Vollständigkeit und Aktualität "
+    f"der Daten wird keine Haftung übernommen; sie entsprechen dem jeweiligen Stand von <a href='https://www.festivalticker.de/' "
+    f"target='_blank' style='color: #888888;'>Festivalticker.de</a>.</i>"
     f"</div>",
     unsafe_allow_html=True
 )
