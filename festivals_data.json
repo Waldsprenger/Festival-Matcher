@@ -48,8 +48,8 @@
     "bands": []
   },
   {
-    "name": "Alcatraz Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
+    "name": "Azkena Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -84,8 +84,8 @@
     "bands": []
   },
   {
-    "name": "Azkena Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
+    "name": "Alcatraz Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -120,8 +120,8 @@
     "bands": []
   },
   {
-    "name": "Brutal Assault",
-    "url_ticker": "https://www.festivalticker.de/festivals/brutal_assault/",
+    "name": "Bochum Total",
+    "url_ticker": "https://www.festivalticker.de/festivals/bochum_total/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -132,8 +132,8 @@
     "bands": []
   },
   {
-    "name": "Bochum Total",
-    "url_ticker": "https://www.festivalticker.de/festivals/bochum_total/",
+    "name": "Brutal Assault",
+    "url_ticker": "https://www.festivalticker.de/festivals/brutal_assault/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -624,18 +624,6 @@
     "bands": []
   },
   {
-    "name": "Mystic Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/mysticfestival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
     "name": "Motocultor Festival",
     "url_ticker": "https://www.festivalticker.de/festivals/motocultor_festival/",
     "datum": "N/A",
@@ -650,6 +638,18 @@
   {
     "name": "Neuborn Open Air Festival",
     "url_ticker": "https://www.festivalticker.de/festivals/neuborn_open_air/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Mystic Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/mysticfestival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -732,8 +732,8 @@
     "bands": []
   },
   {
-    "name": "Primavera Sound",
-    "url_ticker": "https://www.festivalticker.de/festivals/primavera_sound/",
+    "name": "Pol'and'Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/haltestelle_woodstock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -744,8 +744,8 @@
     "bands": []
   },
   {
-    "name": "Pol'and'Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/haltestelle_woodstock/",
+    "name": "Primavera Sound",
+    "url_ticker": "https://www.festivalticker.de/festivals/primavera_sound/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -768,8 +768,8 @@
     "bands": []
   },
   {
-    "name": "Protzen Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/protzen_open_air/",
+    "name": "Provinssi",
+    "url_ticker": "https://www.festivalticker.de/festivals/provinssirock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -780,8 +780,8 @@
     "bands": []
   },
   {
-    "name": "Provinssi",
-    "url_ticker": "https://www.festivalticker.de/festivals/provinssirock/",
+    "name": "Protzen Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/protzen_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -900,8 +900,8 @@
     "bands": []
   },
   {
-    "name": "Rock for People",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_for_people/",
+    "name": "Rock en Seine",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_en_seine/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -912,8 +912,8 @@
     "bands": []
   },
   {
-    "name": "Rock en Seine",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_en_seine/",
+    "name": "Rock for People",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_for_people/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
