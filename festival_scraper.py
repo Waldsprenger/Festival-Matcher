@@ -143,7 +143,7 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
         # Normalisierung
         html = re.sub(r'[\xa0\t\r\n]+', ' ', raw_html)
 
-        # BeautifulSoup als zuverlässiger Parser
+        # BeautifulSoup als Parser für gezielte Abschnitte (Location)
         soup = BeautifulSoup(raw_html, "html.parser")
 
         # --- 1. DATUM ---
@@ -179,7 +179,7 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
         if m_web:
             data["webseite"] = m_web.group(1).strip()
 
-        # --- 5. BANDS ---
+        # --- 5. BANDS (Mit Phrasen-Säuberung & Schreibweisen-Entduplizierung) ---
         bands_text = ""
         m_bands_same = re.search(r'<strong>\s*Bands:\s*</strong>\s*(?:<br\s*/?>)*(.*?)\s*</td>', html, re.IGNORECASE)
         if m_bands_same and m_bands_same.group(1).strip():
@@ -192,7 +192,28 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
         if bands_text:
             cleaned_bands = re.sub(r'<[^>]+>', '', bands_text).strip()
             if cleaned_bands:
-                data["bands"] = [b.strip() for b in cleaned_bands.split(",") if b.strip()]
+                raw_bands = [b.strip() for b in cleaned_bands.split(",") if b.strip()]
+                
+                unique_bands = []
+                seen_normalized = set()
+                
+                for b in raw_bands:
+                    # 1. Phrasen wie "und weitere...", "u.v.m.", "u.a.", "..." entfernen
+                    clean_b = re.sub(r'(\s*\,?\s*|\s+)(und\s+weitere|u\.v\.m\.|u\.a\.|\.\.\.)\b.*$', '', b, flags=re.IGNORECASE).strip()
+                    clean_b = re.sub(r'^[\.\,\s\-]+|[\.\,\s\-]+$', '', clean_b).strip()
+                    
+                    # 2. Schreibweise für Duplikatsvergleich normalisieren (lower-case & einfache Leerzeichen)
+                    norm = re.sub(r'\s+', ' ', clean_b).lower()
+                    
+                    # 3. Restliche leere Einträge oder Phrasen filtern
+                    if not clean_b or norm in ["und weitere", "u.v.m.", "u.a.", "...", "und", "weitere", "bands:"]:
+                        continue
+                        
+                    if norm not in seen_normalized:
+                        seen_normalized.add(norm)
+                        unique_bands.append(clean_b)
+
+                data["bands"] = unique_bands
 
     except Exception as e:
         print(f"Fehler bei {festival_name} ({url}): {e}")
@@ -203,12 +224,11 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
 # 3. PIPELINE
 # ---------------------------------------------------------------------------
 
-def run_scraper(max_workers: int = 5): # Von 12 auf 5 reduziert gegen Rate-Limiting
+def run_scraper(max_workers: int = 5):
     results = []
     
     # Gemeinsame Browser-Session mit Cookies
     session = requests.Session()
-    # Erster Call auf die Hauptseite, um Cookies zu setzen
     try:
         session.get("https://www.festivalticker.de/", headers=HEADERS, timeout=10)
     except Exception:
