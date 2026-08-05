@@ -293,20 +293,22 @@ else:
             help="Favoriten geben die doppelte Punkteanzahl im Algorithmus!"
         )
 
-    # --- VISUELLE RADIUS-KARTE MIT DYNAMISCHEM ZOOM ---
+    # --- VISUELLE RADIUS-KARTE MIT AUTOMATISCHEM FITBOUNDS ---
     if user_plz:
         user_coords = get_coordinates(user_plz, "Deutschland")
         if user_coords:
             with st.expander("🗺️ Standort & Entfernungsradius auf der Karte anzeigen", expanded=False):
-                # Dynamisches Zoom-Level anhand der ausgewählten Kilometer berechnen
-                dynamic_zoom = get_dynamic_zoom(max_dist_km)
+                # Basis-Karte ohne starres Zoom-Level initialisieren
+                m = folium.Map(location=user_coords, tiles="CartoDB dark_matter")
                 
-                m = folium.Map(location=user_coords, zoom_start=dynamic_zoom, tiles="CartoDB dark_matter")
+                # Standorts-Marker
                 folium.Marker(
                     location=user_coords,
                     popup="Dein Standort",
                     icon=folium.Icon(color="red", icon="home")
                 ).add_to(m)
+                
+                # Radius-Kreis
                 folium.Circle(
                     radius=max_dist_km * 1000,
                     location=user_coords,
@@ -315,7 +317,20 @@ else:
                     fill_opacity=0.15,
                     popup=f"Radius: {max_dist_km} km"
                 ).add_to(m)
-                st_folium(m, width=900, height=350)
+
+                # Bounding-Box berechnen (Nord, Süd, Ost, West)
+                lat, lon = user_coords
+                # Ca. Grad-Abweichung pro km für die Grenzen
+                lat_offset = max_dist_km / 111.0
+                lon_offset = max_dist_km / (111.0 * math.cos(math.radians(lat)))
+
+                south_west = [lat - lat_offset, lon - lon_offset]
+                north_east = [lat + lat_offset, lon + lon_offset]
+
+                # Karte exakt so zoomen/skalieren, dass der Kreis NIEMALS oben/unten abgeschnitten wird
+                m.fit_bounds([south_west, north_east], padding=(20, 20))
+
+                st_folium(m, width=900, height=450, returned_objects=[])
 
     # --- MATCHING LOGIK & SORTIERUNG ---
     if st.button("🚀 FESTIVALS AUSWERTEN", type="primary") or selected_norm_bands:
