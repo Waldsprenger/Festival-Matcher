@@ -473,10 +473,10 @@ with col_f2:
         st.markdown("### Impressum")
         st.markdown("""
         **Diensteanbieter gemäß § 5 DDG:**  
-        [Dein Name / Name deines Projekts]  
-        [Musterstraße 1]  
-        [12345 Musterstadt]  
-        **E-Mail:** [deine-email@beispiel.de]  
+        [Arne Waldsperger / Festival-Matcher]  
+        [N7 2a]  
+        [68161 Mannheim]  
+        **E-Mail:** [waldsprenger@gmail.com]  
         """)
         
         st.markdown("---")
