@@ -9,7 +9,6 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
 
-    # NEU: Schreibrechte explizit gewähren
     permissions:
       contents: write
 
