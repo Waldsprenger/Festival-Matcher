@@ -131,7 +131,10 @@ PAYPAL_ME_URL = "https://paypal.me/Waldsperger"
 # ---------------------------------------------------------------------------
 
 def normalize_band_name(name: str) -> str:
+    """Bereinigt Bandnamen von Phrasen und normalisiert Schreibweisen."""
     clean = name.strip()
+    # Entferne "und weitere...", "u.v.m.", "u.a." etc.
+    clean = re.sub(r'(\,\s*)?(und\s+weitere\b|\.\.\.|\b u\.v\.m\b|\b u\.a\b).*$', '', clean, flags=re.IGNORECASE).strip()
     clean = re.sub(r'\s+', ' ', clean)
     return clean
 
