@@ -1,7 +1,7 @@
 [
   {
-    "name": "Aalborg Metal Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/aalborg_metalfestival/",
+    "name": "Best Kept Secret Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/best_kept_secret/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -12,8 +12,20 @@
     "bands": []
   },
   {
-    "name": "Bang Your Head!!!",
-    "url_ticker": "https://www.festivalticker.de/festivals/rvbang_festival/",
+    "name": "Bochum Total",
+    "url_ticker": "https://www.festivalticker.de/festivals/bochum_total/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Azkena Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -48,32 +60,8 @@
     "bands": []
   },
   {
-    "name": "Best Kept Secret Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/best_kept_secret/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Baden in Blut Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/baden_in_blut/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Azkena Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
+    "name": "Bloodstock Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/bloodstock_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -96,8 +84,8 @@
     "bands": []
   },
   {
-    "name": "Alcatraz Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
+    "name": "Aalborg Metal Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/aalborg_metalfestival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -108,8 +96,8 @@
     "bands": []
   },
   {
-    "name": "Bloodstock Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/bloodstock_open_air/",
+    "name": "Bang Your Head!!!",
+    "url_ticker": "https://www.festivalticker.de/festivals/rvbang_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -120,8 +108,8 @@
     "bands": []
   },
   {
-    "name": "Bochum Total",
-    "url_ticker": "https://www.festivalticker.de/festivals/bochum_total/",
+    "name": "Baden in Blut Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/baden_in_blut/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -144,56 +132,8 @@
     "bands": []
   },
   {
-    "name": "Castle Party Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/castle_party_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Chronical Moshers Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/chronical_moshers_open_air/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Copenhell",
-    "url_ticker": "https://www.festivalticker.de/festivals/copenhell/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Damnation Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/damnation_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Dark Easter Metal Meeting",
-    "url_ticker": "https://www.festivalticker.de/festivals/dark_easter_metal_meeting/",
+    "name": "Alcatraz Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -228,8 +168,8 @@
     "bands": []
   },
   {
-    "name": "Dong Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/dong_open_air/",
+    "name": "Castle Party Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/castle_party_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -252,8 +192,32 @@
     "bands": []
   },
   {
-    "name": "Dynamo Metalfest",
-    "url_ticker": "https://www.festivalticker.de/festivals/dynamo_metal_fest/",
+    "name": "Electric Picnic",
+    "url_ticker": "https://www.festivalticker.de/festivals/electric_picnic/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Copenhell",
+    "url_ticker": "https://www.festivalticker.de/festivals/copenhell/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Dong Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/dong_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -276,8 +240,8 @@
     "bands": []
   },
   {
-    "name": "Electric Picnic",
-    "url_ticker": "https://www.festivalticker.de/festivals/electric_picnic/",
+    "name": "Chronical Moshers Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/chronical_moshers_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -288,8 +252,8 @@
     "bands": []
   },
   {
-    "name": "EXIT Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/exit_festival/",
+    "name": "Dynamo Metalfest",
+    "url_ticker": "https://www.festivalticker.de/festivals/dynamo_metal_fest/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -300,8 +264,8 @@
     "bands": []
   },
   {
-    "name": "Frequency Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/fm4_frequency/",
+    "name": "Dark Easter Metal Meeting",
+    "url_ticker": "https://www.festivalticker.de/festivals/dark_easter_metal_meeting/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -312,68 +276,8 @@
     "bands": []
   },
   {
-    "name": "Full Force",
-    "url_ticker": "https://www.festivalticker.de/festivals/with_full_force/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Full Metal Cruise",
-    "url_ticker": "https://www.festivalticker.de/festivals/full_metal_cruise_2/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Gefle Metal Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/gefle_metal_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Glastonbury Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/glastonbury_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Graspop Metal Meeting",
-    "url_ticker": "https://www.festivalticker.de/festivals/graspop_metal_meeting/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Greenfield Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/greenfield_festival/",
+    "name": "Damnation Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/damnation_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -396,8 +300,20 @@
     "bands": []
   },
   {
-    "name": "Hellfest Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/hellfest/",
+    "name": "Frequency Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/fm4_frequency/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Greenfield Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/greenfield_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -432,8 +348,8 @@
     "bands": []
   },
   {
-    "name": "Hurricane Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/hurricane/",
+    "name": "EXIT Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/exit_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -444,8 +360,92 @@
     "bands": []
   },
   {
-    "name": "In Flammen Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/in_flammen_open_air/",
+    "name": "Gefle Metal Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/gefle_metal_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Full Force",
+    "url_ticker": "https://www.festivalticker.de/festivals/with_full_force/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Graspop Metal Meeting",
+    "url_ticker": "https://www.festivalticker.de/festivals/graspop_metal_meeting/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Full Metal Cruise",
+    "url_ticker": "https://www.festivalticker.de/festivals/full_metal_cruise_2/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Glastonbury Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/glastonbury_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Hellfest Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/hellfest/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Mahagoni Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/mahagoni_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "MetalGate Czech Death Fest",
+    "url_ticker": "https://www.festivalticker.de/festivals/metalgate/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -468,8 +468,8 @@
     "bands": []
   },
   {
-    "name": "Keep It True Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/keep_it_true/",
+    "name": "Leeds Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/carling_weekend_leeds/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -480,8 +480,8 @@
     "bands": []
   },
   {
-    "name": "Leeds Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/carling_weekend_leeds/",
+    "name": "Keep It True Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/keep_it_true/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -516,20 +516,8 @@
     "bands": []
   },
   {
-    "name": "Mahagoni Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/mahagoni_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Mammothfest",
-    "url_ticker": "https://www.festivalticker.de/festivals/mammothfest/",
+    "name": "Metal Frenzy Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/metal_frenzy_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -552,8 +540,8 @@
     "bands": []
   },
   {
-    "name": "Metal Frenzy Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/metal_frenzy_open_air/",
+    "name": "In Flammen Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/in_flammen_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -564,8 +552,8 @@
     "bands": []
   },
   {
-    "name": "MetalGate Czech Death Fest",
-    "url_ticker": "https://www.festivalticker.de/festivals/metalgate/",
+    "name": "Hurricane Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/hurricane/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -576,128 +564,8 @@
     "bands": []
   },
   {
-    "name": "Metalacker Tennenbronn",
-    "url_ticker": "https://www.festivalticker.de/festivals/metalacker_tennenbronn/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Metalfest Open Air Plzeň",
-    "url_ticker": "https://www.festivalticker.de/festivals/metalfest_open_air_cz/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Metalhead Meeting",
-    "url_ticker": "https://www.festivalticker.de/festivals/metalhead_meeting/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Metalmania",
-    "url_ticker": "https://www.festivalticker.de/festivals/metal_menia_open_air/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Motocultor Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/motocultor_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Mystic Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/mysticfestival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Neuborn Open Air Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/neuborn_open_air/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Nord Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/nord_open_air/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Nova Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/nova_rock/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Obscene Extreme",
-    "url_ticker": "https://www.festivalticker.de/festivals/obscene_extreme/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Open Air St. Gallen",
-    "url_ticker": "https://www.festivalticker.de/festivals/open_air_st_gallen/",
+    "name": "Mammothfest",
+    "url_ticker": "https://www.festivalticker.de/festivals/mammothfest/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -720,8 +588,8 @@
     "bands": []
   },
   {
-    "name": "Pinkpop",
-    "url_ticker": "https://www.festivalticker.de/festivals/pinkpop/",
+    "name": "Obscene Extreme",
+    "url_ticker": "https://www.festivalticker.de/festivals/obscene_extreme/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -732,8 +600,8 @@
     "bands": []
   },
   {
-    "name": "Pol'and'Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/haltestelle_woodstock/",
+    "name": "Metalfest Open Air Plzeň",
+    "url_ticker": "https://www.festivalticker.de/festivals/metalfest_open_air_cz/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -744,8 +612,8 @@
     "bands": []
   },
   {
-    "name": "Primavera Sound",
-    "url_ticker": "https://www.festivalticker.de/festivals/primavera_sound/",
+    "name": "Nord Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/nord_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -756,8 +624,8 @@
     "bands": []
   },
   {
-    "name": "Prophecy Fest",
-    "url_ticker": "https://www.festivalticker.de/festivals/prophecy_fest/",
+    "name": "Metalmania",
+    "url_ticker": "https://www.festivalticker.de/festivals/metal_menia_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -768,8 +636,8 @@
     "bands": []
   },
   {
-    "name": "Protzen Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/protzen_open_air/",
+    "name": "Nova Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/nova_rock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -780,8 +648,8 @@
     "bands": []
   },
   {
-    "name": "Provinssi",
-    "url_ticker": "https://www.festivalticker.de/festivals/provinssirock/",
+    "name": "Open Air St. Gallen",
+    "url_ticker": "https://www.festivalticker.de/festivals/open_air_st_gallen/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -792,8 +660,8 @@
     "bands": []
   },
   {
-    "name": "Ragnarök Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/ragnaroek_festival/",
+    "name": "Metalacker Tennenbronn",
+    "url_ticker": "https://www.festivalticker.de/festivals/metalacker_tennenbronn/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -804,8 +672,44 @@
     "bands": []
   },
   {
-    "name": "Reading Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/carling_weekend_reading/",
+    "name": "Neuborn Open Air Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/neuborn_open_air/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Mystic Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/mysticfestival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Motocultor Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/motocultor_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Metalhead Meeting",
+    "url_ticker": "https://www.festivalticker.de/festivals/metalhead_meeting/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -828,6 +732,30 @@
     "bands": []
   },
   {
+    "name": "Reading Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/carling_weekend_reading/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Pinkpop",
+    "url_ticker": "https://www.festivalticker.de/festivals/pinkpop/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
     "name": "Resurrection Fest",
     "url_ticker": "https://www.festivalticker.de/festivals/resurrection_fest/",
     "datum": "N/A",
@@ -840,8 +768,8 @@
     "bands": []
   },
   {
-    "name": "Roadburn Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/roadburn_festival/",
+    "name": "Pol'and'Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/haltestelle_woodstock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -864,8 +792,8 @@
     "bands": []
   },
   {
-    "name": "Rock Wave Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/rockwave_festival_2/",
+    "name": "Ragnarök Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/ragnaroek_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -876,8 +804,8 @@
     "bands": []
   },
   {
-    "name": "Rock Werchter",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_werchter/",
+    "name": "Primavera Sound",
+    "url_ticker": "https://www.festivalticker.de/festivals/primavera_sound/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -888,8 +816,8 @@
     "bands": []
   },
   {
-    "name": "Rock am Ring",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_am_ring/",
+    "name": "Roadburn Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/roadburn_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -900,8 +828,8 @@
     "bands": []
   },
   {
-    "name": "Rock en Seine",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_en_seine/",
+    "name": "Protzen Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/protzen_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -912,8 +840,8 @@
     "bands": []
   },
   {
-    "name": "Rock for People",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_for_people/",
+    "name": "Prophecy Fest",
+    "url_ticker": "https://www.festivalticker.de/festivals/prophecy_fest/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -924,68 +852,8 @@
     "bands": []
   },
   {
-    "name": "Rock im Park",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_im_park/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Rock in Rio Lisboa",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_in_rio_lisboa/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Rock unter den Eichen",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_unter_den_eichen/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Rockharz Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_harz_open_air/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Roskilde Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/roskilde_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Slam Dunk Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/slam_dunk_festival_hatfield/",
+    "name": "Provinssi",
+    "url_ticker": "https://www.festivalticker.de/festivals/provinssirock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1008,8 +876,176 @@
     "bands": []
   },
   {
+    "name": "Rock Wave Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/rockwave_festival_2/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Roskilde Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/roskilde_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rockharz Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_harz_open_air/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Slam Dunk Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/slam_dunk_festival_hatfield/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock am Ring",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_am_ring/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock in Rio Lisboa",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_in_rio_lisboa/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock for People",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_for_people/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock en Seine",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_en_seine/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock im Park",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_im_park/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock unter den Eichen",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_unter_den_eichen/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Rock Werchter",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_werchter/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
     "name": "Southside Festival",
     "url_ticker": "https://www.festivalticker.de/festivals/southside-festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Wacken Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/wacken_open_air/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "SWR Barroselas Metalfest",
+    "url_ticker": "https://www.festivalticker.de/festivals/swr_barroselas_metalfest/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Way Out West",
+    "url_ticker": "https://www.festivalticker.de/festivals/way_out_west/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1044,30 +1080,6 @@
     "bands": []
   },
   {
-    "name": "Sweden Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/sweden_rock/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "SWR Barroselas Metalfest",
-    "url_ticker": "https://www.festivalticker.de/festivals/swr_barroselas_metalfest/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
     "name": "Tons of Rock",
     "url_ticker": "https://www.festivalticker.de/festivals/tons_of_rock/",
     "datum": "N/A",
@@ -1092,8 +1104,8 @@
     "bands": []
   },
   {
-    "name": "Tuska Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/tuska_festival/",
+    "name": "Sweden Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/sweden_rock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1116,18 +1128,6 @@
     "bands": []
   },
   {
-    "name": "Wacken Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/wacken_open_air/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
     "name": "Zwarte Cross",
     "url_ticker": "https://www.festivalticker.de/festivals/zwarte_cross/",
     "datum": "N/A",
@@ -1140,8 +1140,8 @@
     "bands": []
   },
   {
-    "name": "Way Out West",
-    "url_ticker": "https://www.festivalticker.de/festivals/way_out_west/",
+    "name": "Tuska Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/tuska_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
