@@ -38,16 +38,48 @@ def load_festival_data():
 
 @st.cache_data(ttl=86400)
 def get_coordinates(plz: str, land: str = "Deutschland"):
-    """Ermittelt Breiten- und Längengrad zu einer PLZ (mit Caching zur Performancesteigerung)."""
+    """Ermittelt Breiten- und Längengrad zu einer PLZ (mit Caching & Fallback)."""
     if not plz or plz == "N/A":
         return None
+
+    # PLZ bereinigen (nur Zahlen/Buchstaben)
+    clean_plz = re.sub(r'[^a-zA-Z0-9]', '', str(plz)).strip()
+    if not clean_plz:
+        return None
+
+    # Versuche 1: Nominatim mit eindeutigem User-Agent und expliziten Parametern
     try:
-        geolocator = Nominatim(user_agent="festival_matcher_app")
-        location = geolocator.geocode(f"{plz}, {land}")
+        # Ein eindeutiger User-Agent verhindert, dass Nominatim die Anfrage blockiert
+        geolocator = Nominatim(user_agent="festival_matcher_app_waldsprenger_v2")
+        
+        # Gezielte Abfrage über Structured Query oder Suchstring
+        query = f"{clean_plz}, {land}"
+        location = geolocator.geocode(query, timeout=5)
+        
         if location:
             return (location.latitude, location.longitude)
+        
+        # Falls mit Land nicht gefunden, nur nach der PLZ suchen
+        location_fallback = geolocator.geocode(clean_plz, timeout=5)
+        if location_fallback:
+            return (location_fallback.latitude, location_fallback.longitude)
+
     except Exception:
         pass
+
+    # Versuche 2: Fallback über die kostenlose Open-Meteo Geocoding API (sehr schnell & zuverlässig)
+    try:
+        url = f"https://geocoding-api.open-meteo.com/v1/search?name={clean_plz}&count=1&language=de&format=json"
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if "results" in data and len(data["results"]) > 0:
+                lat = data["results"][0]["latitude"]
+                lon = data["results"][0]["longitude"]
+                return (lat, lon)
+    except Exception:
+        pass
+
     return None
 
 def parse_price(preis_str: str) -> float:
