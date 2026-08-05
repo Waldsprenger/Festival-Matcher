@@ -1,7 +1,7 @@
 [
   {
-    "name": "Aalborg Metal Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/aalborg_metalfestival/",
+    "name": "Alcatraz Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -48,30 +48,6 @@
     "bands": []
   },
   {
-    "name": "Azkena Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Amphi Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/amphi_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
     "name": "Baden in Blut Festival",
     "url_ticker": "https://www.festivalticker.de/festivals/baden_in_blut/",
     "datum": "N/A",
@@ -84,8 +60,32 @@
     "bands": []
   },
   {
-    "name": "Alcatraz Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
+    "name": "Azkena Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Aalborg Metal Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/aalborg_metalfestival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Amphi Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/amphi_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -204,8 +204,8 @@
     "bands": []
   },
   {
-    "name": "Deichbrand Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/deichbrand/",
+    "name": "Desertfest Berlin",
+    "url_ticker": "https://www.festivalticker.de/festivals/desertfest/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -216,8 +216,8 @@
     "bands": []
   },
   {
-    "name": "Desertfest Berlin",
-    "url_ticker": "https://www.festivalticker.de/festivals/desertfest/",
+    "name": "Deichbrand Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/deichbrand/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -252,8 +252,8 @@
     "bands": []
   },
   {
-    "name": "Dynamo Metalfest",
-    "url_ticker": "https://www.festivalticker.de/festivals/dynamo_metal_fest/",
+    "name": "Eindhoven Metal Meeting",
+    "url_ticker": "https://www.festivalticker.de/festivals/eindhoven_metal_meeting/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -264,8 +264,8 @@
     "bands": []
   },
   {
-    "name": "Eindhoven Metal Meeting",
-    "url_ticker": "https://www.festivalticker.de/festivals/eindhoven_metal_meeting/",
+    "name": "Dynamo Metalfest",
+    "url_ticker": "https://www.festivalticker.de/festivals/dynamo_metal_fest/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -300,8 +300,8 @@
     "bands": []
   },
   {
-    "name": "Frequency Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/fm4_frequency/",
+    "name": "Full Force",
+    "url_ticker": "https://www.festivalticker.de/festivals/with_full_force/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -312,8 +312,8 @@
     "bands": []
   },
   {
-    "name": "Full Force",
-    "url_ticker": "https://www.festivalticker.de/festivals/with_full_force/",
+    "name": "Frequency Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/fm4_frequency/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -636,8 +636,8 @@
     "bands": []
   },
   {
-    "name": "Neuborn Open Air Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/neuborn_open_air/",
+    "name": "Mystic Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/mysticfestival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -648,8 +648,8 @@
     "bands": []
   },
   {
-    "name": "Mystic Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/mysticfestival/",
+    "name": "Neuborn Open Air Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/neuborn_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -768,8 +768,8 @@
     "bands": []
   },
   {
-    "name": "Provinssi",
-    "url_ticker": "https://www.festivalticker.de/festivals/provinssirock/",
+    "name": "Protzen Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/protzen_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -780,8 +780,8 @@
     "bands": []
   },
   {
-    "name": "Protzen Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/protzen_open_air/",
+    "name": "Provinssi",
+    "url_ticker": "https://www.festivalticker.de/festivals/provinssirock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -936,8 +936,8 @@
     "bands": []
   },
   {
-    "name": "Rock in Rio Lisboa",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_in_rio_lisboa/",
+    "name": "Rock unter den Eichen",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_unter_den_eichen/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -948,8 +948,8 @@
     "bands": []
   },
   {
-    "name": "Rock unter den Eichen",
-    "url_ticker": "https://www.festivalticker.de/festivals/rock_unter_den_eichen/",
+    "name": "Rock in Rio Lisboa",
+    "url_ticker": "https://www.festivalticker.de/festivals/rock_in_rio_lisboa/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1008,8 +1008,8 @@
     "bands": []
   },
   {
-    "name": "Southside Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/southside-festival/",
+    "name": "Stoned from the Underground",
+    "url_ticker": "https://www.festivalticker.de/festivals/stoned_from_the_underground/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1020,8 +1020,8 @@
     "bands": []
   },
   {
-    "name": "Stoned from the Underground",
-    "url_ticker": "https://www.festivalticker.de/festivals/stoned_from_the_underground/",
+    "name": "Southside Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/southside-festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
