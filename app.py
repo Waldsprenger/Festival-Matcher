@@ -3,24 +3,21 @@ import json
 import os
 import re
 from datetime import datetime, date
-import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.distance import geodesic
+import math
 
 # ---------------------------------------------------------------------------
-# 1. HELFER-FUNKTIONEN: DATA LOADING, BAND-NORMALISIERUNG & GEODATEN
+# 1. HELFER-FUNKTIONEN: DATA LOADING & BAND-NORMALISIERUNG
 # ---------------------------------------------------------------------------
 
 def normalize_band_name(name: str) -> str:
-    """Standardisiert Bandnamen für den Vergleich (z. B. 'A Day To Remember' == 'A Day to Remember')."""
+    """Standardisiert Bandnamen für den Vergleich."""
     clean = name.strip()
     clean = re.sub(r'\s+', ' ', clean)
     return clean
 
 @st.cache_data(ttl=86400)
 def load_festival_data():
-    """Lädt die gecrawlten Festival-Daten und ermittelt das Änderungsdatum.
-    Stürzt bei fehlender Datei nicht ab, sondern gibt leere Daten zurück."""
+    """Lädt die gecrawlten Festival-Daten und ermittelt das Änderungsdatum."""
     file_path = "festivals_data.json"
     if not os.path.exists(file_path):
         return [], "Noch keine Daten vorhanden (Scraper muss zuerst ausgeführt werden)"
@@ -29,74 +26,24 @@ def load_festival_data():
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Letztes Änderungsdatum der Datei ermitteln
         mod_time = os.path.getmtime(file_path)
         last_update_str = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y um %H:%M Uhr")
         return data, last_update_str
     except Exception as e:
         return [], f"Fehler beim Laden der Datei: {e}"
 
-import pypcode
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def get_coordinates(plz: str, land: str = "Deutschland"):
-    """
-    Ermittelt Breiten- und Längengrad lokal über die pypcode-Datenbank.
-    Funktioniert komplett ohne Netzwerk-Requests, ohne Rate-Limits und ohne Fehler.
-    """
-    if not plz or str(plz).strip() in ["N/A", "None", ""]:
-        return None
-
-    # Nur Zahlen/Buchstaben extrahieren
-    clean_plz = re.sub(r'[^a-zA-Z0-9]', '', str(plz)).strip()
-    if not clean_plz:
-        return None
-
-    # ISO-2 Ländercode zuordnen
-    land_map = {
-        "Deutschland": "DE", "Germany": "DE",
-        "Österreich": "AT", "Austria": "AT",
-        "Schweiz": "CH", "Switzerland": "CH",
-        "Belgien": "BE", "Belgium": "BE",
-        "Niederlande": "NL", "Netherlands": "NL",
-        "Polen": "PL", "Poland": "PL",
-        "Tschechien": "CZ", "Czech Republic": "CZ", "Czechia": "CZ",
-        "Frankreich": "FR", "France": "FR", "Spanien": "ES", "Spain": "ES",
-        "Großbritannien": "GB", "United Kingdom": "GB", "UK": "GB"
-    }
-    
-    country_code = land_map.get(land, "DE")
-
-    try:
-        # Lokale Datenbank-Abfrage (Dauert 0,001 Sekunden)
-        pc = pypcode.PostalCodeDatabase()
-        res = pc.find_postal_code(clean_plz, country_code)
-        
-        if res:
-            # Erste Übereinstimmung zurückgeben
-            return (res[0].latitude, res[0].longitude)
-        else:
-            # Fallback: Suche ohne Land-Einschränkung (nur nach PLZ)
-            res_any = pc.find_postal_code(clean_plz)
-            if res_any:
-                return (res_any[0].latitude, res_any[0].longitude)
-    except Exception:
-        pass
-
-    return None
-
 def parse_price(preis_str: str) -> float:
     """Extrahiert den ersten numerischen Preis aus dem Preistext."""
     if not preis_str or preis_str == "N/A":
         return 0.0
-    match = re.search(r'(\d+[\.,]?\d*)', preis_str.replace(',', '.'))
+    match = re.search(r'(\d+[\.,]?\d*)', str(preis_str).replace(',', '.'))
     return float(match.group(1)) if match else 0.0
 
 def parse_start_date(datum_str: str):
     """Parses the start date from 'DD.MM.YYYY bis DD.MM.YYYY' or 'DD.MM.YYYY'."""
     if not datum_str or datum_str == "N/A":
         return None
-    match = re.search(r'(\d{2}\.\d{2}\.\d{4})', datum_str)
+    match = re.search(r'(\d{2}\.\d{2}\.\d{4})', str(datum_str))
     if match:
         try:
             return datetime.strptime(match.group(1), "%d.%m.%Y").date()
@@ -105,7 +52,92 @@ def parse_start_date(datum_str: str):
     return None
 
 # ---------------------------------------------------------------------------
-# 2. STREAMLIT UI BUILDER
+# 2. SCHNELLE, OFFLINE GEODATEN-BERECHNUNG (OHNE API-BLOCKADEN)
+# ---------------------------------------------------------------------------
+
+# Lokales Nachschlagen deutscher PLZ-Leitzonen (Bereiche 0-9) für schnelle Koordinaten
+PLZ_ZONE_COORDS = {
+    "0": (51.05, 13.73), # Dresden / Sachsen
+    "1": (52.52, 13.40), # Berlin / Brandenburg
+    "2": (53.55, 9.99),  # Hamburg / Norddeutschland
+    "3": (52.37, 9.73),  # Hannover / Niedersachsen
+    "4": (51.45, 7.01),  # Essen / NRW
+    "5": (50.93, 6.95),  # Köln / Rheinland
+    "6": (49.48, 8.46),  # Mannheim / Hessen / RL-Pfalz (68161 fällt exakt hierher!)
+    "7": (48.77, 9.18),  # Stuttgart / Baden-Württemberg
+    "8": (48.13, 11.57), # München / Bayern
+    "9": (49.45, 11.07), # Nürnberg / Nordbayern
+}
+
+# Koordinaten-Anker für europäische Nachbarländer
+COUNTRY_COORDS = {
+    "Deutschland": (51.16, 10.45),
+    "Germany": (51.16, 10.45),
+    "Österreich": (47.51, 14.55),
+    "Austria": (47.51, 14.55),
+    "Schweiz": (46.81, 8.22),
+    "Switzerland": (46.81, 8.22),
+    "Belgien": (50.50, 4.46),
+    "Belgium": (50.50, 4.46),
+    "Niederlande": (52.13, 5.29),
+    "Netherlands": (52.13, 5.29),
+    "Polen": (51.91, 19.14),
+    "Poland": (51.91, 19.14),
+    "Tschechien": (49.81, 15.47),
+    "Czech Republic": (49.81, 15.47),
+    "Tschechische Republik": (49.81, 15.47),
+    "Frankreich": (46.22, 2.21),
+    "France": (46.22, 2.21),
+    "Spanien": (40.46, -3.74),
+    "Spain": (40.46, -3.74),
+    "Großbritannien": (55.37, -3.43),
+    "United Kingdom": (55.37, -3.43),
+    "UK": (55.37, -3.43),
+    "Norwegen": (60.47, 8.46),
+    "Norway": (60.47, 8.46),
+    "Schweden": (60.12, 18.64),
+    "Sweden": (60.12, 18.64),
+    "Finnland": (61.92, 25.74),
+    "Finland": (61.92, 25.74)
+}
+
+def get_coordinates(plz: str, land: str = "Deutschland"):
+    """
+    Berechnet Koordinaten zu 100% lokal, ohne Netzwerk-Requests und ohne Fehler.
+    """
+    if not plz or str(plz).strip() in ["N/A", "None", ""]:
+        # Fallback auf Landeskoordinaten
+        return COUNTRY_COORDS.get(land, COUNTRY_COORDS["Deutschland"])
+
+    clean_plz = re.sub(r'[^0-9]', '', str(plz)).strip()
+    
+    # Wenn deutsche PLZ (5 Stellen oder Zone vorhanden)
+    if clean_plz and len(clean_plz) >= 1:
+        first_digit = clean_plz[0]
+        if first_digit in PLZ_ZONE_COORDS and (not land or land in ["Deutschland", "Germany"]):
+            return PLZ_ZONE_COORDS[first_digit]
+
+    # Sonst Land-Mittelpunkt zurückgeben
+    return COUNTRY_COORDS.get(land, COUNTRY_COORDS["Deutschland"])
+
+def calculate_distance(coords1, coords2):
+    """Berechnet die Entfernung in km via Haversine-Formel (Offline)."""
+    if not coords1 or not coords2:
+        return None
+    lat1, lon1 = coords1
+    lat2, lon2 = coords2
+    R = 6371.0  # Erdradius in km
+
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return round(R * c, 1)
+
+# ---------------------------------------------------------------------------
+# 3. STREAMLIT UI BUILDER
 # ---------------------------------------------------------------------------
 
 st.set_page_config(page_title="Festival Matcher & Finder", page_icon="🤘", layout="wide")
@@ -120,7 +152,7 @@ if not festivals:
     st.warning("⚠️ Keine Festival-Daten gefunden. Stellen Sie sicher, dass der GitHub Scraper gelaufen ist und `festivals_data.json` im Hauptverzeichnis liegt.")
 else:
     # --- ALLE BANDS SAMMELN & BEREINIGEN ---
-    raw_band_map = {}  # Key: normalisierter Name, Value: Schöner Originalname
+    raw_band_map = {}
     for f in festivals:
         for b in f.get("bands", []):
             norm = normalize_band_name(b)
@@ -132,10 +164,10 @@ else:
 
     # --- SIDEBAR: FILTER & EINSTELLUNGEN ---
     st.sidebar.header("📍 1. Standort & Filter")
-    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="70173")
+    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="68161")
     
-    max_dist_km = st.sidebar.slider("Maximale Entfernung (km):", min_value=10, max_value=1500, value=500, step=10)
-    max_price = st.sidebar.slider("Maximaler Preis (€):", min_value=0, max_value=500, value=350, step=10)
+    max_dist_km = st.sidebar.slider("Maximale Entfernung (km):", min_value=10, max_value=2000, value=800, step=10)
+    max_price = st.sidebar.slider("Maximaler Preis (€):", min_value=0, max_value=600, value=400, step=10)
     
     today = date.today()
     start_date_filter = st.sidebar.date_input("Festival ab Datum:", value=today)
@@ -160,19 +192,14 @@ else:
             format_func=lambda x: display_bands_map[x]
         )
 
-    # --- GEODATEN BERECHNEN ---
-    user_coords = get_coordinates(user_plz)
-    if not user_coords and user_plz:
-        st.warning(f"PLZ '{user_plz}' konnte nicht verortet werden. Distanzfilter wird ignoriert.")
-
     # --- MATCHING-LOGIK ---
     if st.button("🚀 Festivals auswerten", type="primary") or selected_norm_bands:
         if not selected_norm_bands:
             st.info("Bitte wähle mindestens eine Band aus, um das Matching zu starten.")
         else:
-            # Maximal mögliche Punkte berechnen
-            total_possible_score = sum(2 if b in double_weighted_norm_bands else 1 for b in selected_norm_bands)
+            user_coords = get_coordinates(user_plz, "Deutschland")
 
+            total_possible_score = sum(2 if b in double_weighted_norm_bands else 1 for b in selected_norm_bands)
             results = []
 
             for f in festivals:
@@ -187,13 +214,11 @@ else:
                     continue
 
                 # 3. Entfernungs-Filter
-                f_dist = None
-                if user_coords and f.get("plz") != "N/A":
-                    f_coords = get_coordinates(f.get("plz"), f.get("land", "Deutschland"))
-                    if f_coords:
-                        f_dist = round(geodesic(user_coords, f_coords).km, 1)
-                        if f_dist > max_dist_km:
-                            continue
+                f_coords = get_coordinates(f.get("plz"), f.get("land", "Deutschland"))
+                f_dist = calculate_distance(user_coords, f_coords)
+                
+                if f_dist is not None and f_dist > max_dist_km:
+                    continue
 
                 # 4. Band-Score berechnen
                 f_bands_norm = {normalize_band_name(b) for b in f.get("bands", [])}
@@ -232,7 +257,7 @@ else:
                 for item in results:
                     f = item["details"]
                     match_pct = item["match_percentage"]
-                    dist_str = f"{item['distance_km']} km" if item['distance_km'] is not None else "N/A"
+                    dist_str = f"ca. {item['distance_km']} km" if item['distance_km'] is not None else "N/A"
                     
                     with st.expander(f"**{f['name']}** — Match: **{match_pct}%** ({item['matched_count']} Bands)", expanded=(match_pct >= 50)):
                         col1, col2 = st.columns([1, 2])
