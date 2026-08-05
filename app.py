@@ -8,7 +8,7 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 
 # ---------------------------------------------------------------------------
-# 1. HELFER-FUNKTIONEN: BAND-NORMALISIERUNG & GEODATEN
+# 1. HELFER-FUNKTIONEN: DATA LOADING, BAND-NORMALISIERUNG & GEODATEN
 # ---------------------------------------------------------------------------
 
 def normalize_band_name(name: str) -> str:
@@ -19,20 +19,22 @@ def normalize_band_name(name: str) -> str:
 
 @st.cache_data(ttl=86400)
 def load_festival_data():
-    """Lädt die gecrawlten Festival-Daten und ermittelt das Änderungsdatum."""
+    """Lädt die gecrawlten Festival-Daten und ermittelt das Änderungsdatum.
+    Stürzt bei fehlender Datei nicht ab, sondern gibt leere Daten zurück."""
     file_path = "festivals_data.json"
     if not os.path.exists(file_path):
-        st.error(f"Datei '{file_path}' nicht gefunden. Bitte zuerst den Scraper ausführen!")
-        return [], "Keine Daten vorhanden"
+        return [], "Noch keine Daten vorhanden (Scraper muss zuerst ausgeführt werden)"
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    # Letztes Änderungsdatum der Datei ermitteln
-    mod_time = os.path.getmtime(file_path)
-    last_update_str = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y um %H:%M Uhr")
-    
-    return data, last_update_str
+        # Letztes Änderungsdatum der Datei ermitteln
+        mod_time = os.path.getmtime(file_path)
+        last_update_str = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y um %H:%M Uhr")
+        return data, last_update_str
+    except Exception as e:
+        return [], f"Fehler beim Laden der Datei: {e}"
 
 @st.cache_data(ttl=86400)
 def get_coordinates(plz: str, land: str = "Deutschland"):
@@ -56,7 +58,7 @@ def parse_price(preis_str: str) -> float:
     return float(match.group(1)) if match else 0.0
 
 def parse_start_date(datum_str: str):
-    """Parses the start date from 'DD.MM.YYYY bis DD.MM.YYYY'."""
+    """Parses the start date from 'DD.MM.YYYY bis DD.MM.YYYY' or 'DD.MM.YYYY'."""
     if not datum_str or datum_str == "N/A":
         return None
     match = re.search(r'(\d{2}\.\d{2}\.\d{4})', datum_str)
@@ -79,9 +81,11 @@ st.markdown("Finde das perfekte Festival basierend auf deinen Lieblingsbands, de
 # Daten laden
 festivals, last_update = load_festival_data()
 
-if festivals:
+if not festivals:
+    st.warning("⚠️ Keine Festival-Daten gefunden. Stellen Sie sicher, dass der GitHub Scraper gelaufen ist und `festivals_data.json` im Hauptverzeichnis liegt.")
+else:
     # --- ALLE BANDS SAMMELN & BEREINIGEN ---
-    raw_band_map = {} # Key: normalisierter Name, Value: Schöner Originalname
+    raw_band_map = {}  # Key: normalisierter Name, Value: Schöner Originalname
     for f in festivals:
         for b in f.get("bands", []):
             norm = normalize_band_name(b)
@@ -214,11 +218,11 @@ if festivals:
                             with st.popover("Gesamtes Lineup anzeigen"):
                                 st.write(", ".join(f.get("bands", [])))
 
-    # --- FUSSZEILE ---
-    st.markdown("<br><hr>", unsafe_allow_html=True)
-    st.markdown(
-        f"<div style='text-align: center; color: gray; font-size: 0.85em;'>"
-        f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions"
-        f"</div>",
-        unsafe_allow_html=True
-    )
+# --- FUSSZEILE ---
+st.markdown("<br><hr>", unsafe_allow_html=True)
+st.markdown(
+    f"<div style='text-align: center; color: gray; font-size: 0.85em;'>"
+    f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions"
+    f"</div>",
+    unsafe_allow_html=True
+)
