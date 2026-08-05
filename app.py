@@ -18,6 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS für Metal-Vibe, Buttons & PayPal-Kaffeekasse
 st.markdown("""
 <style>
     .stApp {
@@ -82,6 +83,7 @@ st.markdown("""
         border: 1px solid #555555;
     }
 
+    /* Primary Button Customization */
     div.stButton > button[kind="primary"] {
         background-color: #B71C1C;
         color: white;
@@ -94,8 +96,35 @@ st.markdown("""
         background-color: #D32F2F;
         box-shadow: 0 0 10px #D32F2F;
     }
+
+    /* Custom PayPal-Button Style */
+    .paypal-button {
+        display: inline-block;
+        background-color: #FFC439;
+        color: #003087;
+        font-weight: bold;
+        padding: 10px 18px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 1em;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s ease-in-out;
+        border: 1px solid #E5A800;
+        text-align: center;
+    }
+    .paypal-button:hover {
+        background-color: #FFD266;
+        color: #001C64;
+        box-shadow: 0 0 12px rgba(255, 196, 57, 0.6);
+        text-decoration: none;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# CONFIG: HIER DEINEN PAYPAL LINK EINTRAGEN
+# ---------------------------------------------------------------------------
+PAYPAL_ME_URL = "https://paypal.me/Waldsperger"
 
 # ---------------------------------------------------------------------------
 # 2. HELFER-FUNKTIONEN
@@ -187,21 +216,6 @@ def calculate_distance(coords1, coords2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return round(R * c, 1)
 
-def get_dynamic_zoom(radius_km: float) -> int:
-    """Berechnet dynamisch das ideale Zoom-Level basierend auf dem Radius in km."""
-    if radius_km <= 50:
-        return 9
-    elif radius_km <= 150:
-        return 8
-    elif radius_km <= 300:
-        return 7
-    elif radius_km <= 600:
-        return 6
-    elif radius_km <= 1200:
-        return 5
-    else:
-        return 4
-
 # ---------------------------------------------------------------------------
 # 3. STREAMLIT UI BUILDER
 # ---------------------------------------------------------------------------
@@ -227,7 +241,6 @@ else:
     # --- SIDEBAR: FILTER ---
     st.sidebar.header("📍 1. Standort & Kriterien")
     
-    # PLZ Beispiel auf 12345 geändert
     user_plz = st.sidebar.text_input(
         "Deine PLZ:", 
         value="", 
@@ -272,6 +285,14 @@ else:
 
     st.sidebar.header("🎯 2. Band-Gewichtung")
 
+    # --- PAYPAL SPENDENBUTTON IN SIDEBAR ---
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("☕ **Projekt unterstützen**")
+    st.sidebar.markdown(
+        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">🍺 Bier / Kaffee spenden</a>',
+        unsafe_allow_html=True
+    )
+
     # --- HAUPTBEREICH: BANDAUSWAHL & MAP ---
     st.subheader("🎵 Wähle deine Bands aus")
     
@@ -293,22 +314,19 @@ else:
             help="Favoriten geben die doppelte Punkteanzahl im Algorithmus!"
         )
 
-    # --- VISUELLE RADIUS-KARTE MIT AUTOMATISCHEM FITBOUNDS ---
+    # --- VISUELLE RADIUS-KARTE ---
     if user_plz:
         user_coords = get_coordinates(user_plz, "Deutschland")
         if user_coords:
             with st.expander("🗺️ Standort & Entfernungsradius auf der Karte anzeigen", expanded=False):
-                # Basis-Karte ohne starres Zoom-Level initialisieren
                 m = folium.Map(location=user_coords, tiles="CartoDB dark_matter")
                 
-                # Standorts-Marker
                 folium.Marker(
                     location=user_coords,
                     popup="Dein Standort",
                     icon=folium.Icon(color="red", icon="home")
                 ).add_to(m)
                 
-                # Radius-Kreis
                 folium.Circle(
                     radius=max_dist_km * 1000,
                     location=user_coords,
@@ -318,16 +336,13 @@ else:
                     popup=f"Radius: {max_dist_km} km"
                 ).add_to(m)
 
-                # Bounding-Box berechnen (Nord, Süd, Ost, West)
                 lat, lon = user_coords
-                # Ca. Grad-Abweichung pro km für die Grenzen
                 lat_offset = max_dist_km / 111.0
                 lon_offset = max_dist_km / (111.0 * math.cos(math.radians(lat)))
 
                 south_west = [lat - lat_offset, lon - lon_offset]
                 north_east = [lat + lat_offset, lon + lon_offset]
 
-                # Karte exakt so zoomen/skalieren, dass der Kreis NIEMALS oben/unten abgeschnitten wird
                 m.fit_bounds([south_west, north_east], padding=(20, 20))
 
                 st_folium(m, width=900, height=450, returned_objects=[])
@@ -456,7 +471,7 @@ else:
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 
-col_f1, col_f2 = st.columns([3, 1])
+col_f1, col_f2, col_f3 = st.columns([2.5, 1, 1])
 
 with col_f1:
     st.markdown(
@@ -469,14 +484,20 @@ with col_f1:
     )
 
 with col_f2:
+    st.markdown(
+        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">💳 Spenden über PayPal</a>',
+        unsafe_allow_html=True
+    )
+
+with col_f3:
     with st.popover("⚖️ Impressum & Datenschutz"):
         st.markdown("### Impressum")
         st.markdown("""
         **Diensteanbieter gemäß § 5 DDG:**  
-        [Arne Waldsperger / Festival-Matcher]  
-        [N7 2a]  
-        [68161 Mannheim]  
-        **E-Mail:** [waldsprenger@gmail.com]  
+        Arne Waldsperger / Festival-Matcher  
+        N7 2a  
+        68161 Mannheim  
+        **E-Mail:** waldsprenger@gmail.com  
         """)
         
         st.markdown("---")
