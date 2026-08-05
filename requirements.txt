@@ -2,3 +2,4 @@ streamlit
 pandas
 geopy
 requests
+starlette<0.40.0
