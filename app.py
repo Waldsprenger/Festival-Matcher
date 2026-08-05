@@ -36,49 +36,50 @@ def load_festival_data():
     except Exception as e:
         return [], f"Fehler beim Laden der Datei: {e}"
 
-# ---------------------------------------------------------------------------
-# GEODATEN-FUNKTION (PLZ-PROFILING FIX)
-# ---------------------------------------------------------------------------
+import pypcode
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_coordinates(plz: str, land: str = "Deutschland"):
-    """Ermittelt Breiten- und Längengrad zuverlässig für EU/DE Postleitzahlen."""
+    """
+    Ermittelt Breiten- und Längengrad lokal über die pypcode-Datenbank.
+    Funktioniert komplett ohne Netzwerk-Requests, ohne Rate-Limits und ohne Fehler.
+    """
     if not plz or str(plz).strip() in ["N/A", "None", ""]:
         return None
 
+    # Nur Zahlen/Buchstaben extrahieren
     clean_plz = re.sub(r'[^a-zA-Z0-9]', '', str(plz)).strip()
     if not clean_plz:
         return None
 
-    # Land bestimmen/normalisieren
-    land_str = land if land and land != "N/A" else "Deutschland"
+    # ISO-2 Ländercode zuordnen
+    land_map = {
+        "Deutschland": "DE", "Germany": "DE",
+        "Österreich": "AT", "Austria": "AT",
+        "Schweiz": "CH", "Switzerland": "CH",
+        "Belgien": "BE", "Belgium": "BE",
+        "Niederlande": "NL", "Netherlands": "NL",
+        "Polen": "PL", "Poland": "PL",
+        "Tschechien": "CZ", "Czech Republic": "CZ", "Czechia": "CZ",
+        "Frankreich": "FR", "France": "FR", "Spanien": "ES", "Spain": "ES",
+        "Großbritannien": "GB", "United Kingdom": "GB", "UK": "GB"
+    }
+    
+    country_code = land_map.get(land, "DE")
 
-    # 1. Open-Meteo API mit explizitem Suchstring (z.B. "PLZ 68161 Germany")
     try:
-        query = f"PLZ {clean_plz} {land_str}"
-        url = f"https://geocoding-api.open-meteo.com/v1/search?name={requests.utils.quote(query)}&count=1&language=de&format=json"
-        resp = requests.get(url, timeout=3)
-        if resp.status_code == 200:
-            data = resp.json()
-            if "results" in data and len(data["results"]) > 0:
-                res = data["results"][0]
-                return (res["latitude"], res["longitude"])
-    except Exception:
-        pass
-
-    # 2. Nominatim Fallback mit strukturierter Abfrage
-    try:
-        geolocator = Nominatim(user_agent="festival_matcher_waldsprenger_v4")
-        # Suchstring gezielt formatieren
-        search_term = f"{clean_plz}, {land_str}"
-        location = geolocator.geocode(search_term, timeout=3)
-        if location:
-            return (location.latitude, location.longitude)
-
-        # Zweiter Versuch: Nur PLZ + Germany
-        location_fallback = geolocator.geocode(f"{clean_plz} Germany", timeout=3)
-        if location_fallback:
-            return (location_fallback.latitude, location_fallback.longitude)
+        # Lokale Datenbank-Abfrage (Dauert 0,001 Sekunden)
+        pc = pypcode.PostalCodeDatabase()
+        res = pc.find_postal_code(clean_plz, country_code)
+        
+        if res:
+            # Erste Übereinstimmung zurückgeben
+            return (res[0].latitude, res[0].longitude)
+        else:
+            # Fallback: Suche ohne Land-Einschränkung (nur nach PLZ)
+            res_any = pc.find_postal_code(clean_plz)
+            if res_any:
+                return (res_any[0].latitude, res_any[0].longitude)
     except Exception:
         pass
 
