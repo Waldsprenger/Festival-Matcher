@@ -36,47 +36,38 @@ def load_festival_data():
     except Exception as e:
         return [], f"Fehler beim Laden der Datei: {e}"
 
-@st.cache_data(ttl=86400)
+# ---------------------------------------------------------------------------
+# GEODATEN-FUNKTION (SCHNELL & OHNE HÄNGEN)
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=86400, show_spinner=False)
 def get_coordinates(plz: str, land: str = "Deutschland"):
-    """Ermittelt Breiten- und Längengrad zu einer PLZ (mit Caching & Fallback)."""
+    """Ermittelt Breiten- und Längengrad ohne das UI zu blockieren."""
     if not plz or plz == "N/A":
         return None
 
-    # PLZ bereinigen (nur Zahlen/Buchstaben)
     clean_plz = re.sub(r'[^a-zA-Z0-9]', '', str(plz)).strip()
     if not clean_plz:
         return None
 
-    # Versuche 1: Nominatim mit eindeutigem User-Agent und expliziten Parametern
-    try:
-        # Ein eindeutiger User-Agent verhindert, dass Nominatim die Anfrage blockiert
-        geolocator = Nominatim(user_agent="festival_matcher_app_waldsprenger_v2")
-        
-        # Gezielte Abfrage über Structured Query oder Suchstring
-        query = f"{clean_plz}, {land}"
-        location = geolocator.geocode(query, timeout=5)
-        
-        if location:
-            return (location.latitude, location.longitude)
-        
-        # Falls mit Land nicht gefunden, nur nach der PLZ suchen
-        location_fallback = geolocator.geocode(clean_plz, timeout=5)
-        if location_fallback:
-            return (location_fallback.latitude, location_fallback.longitude)
-
-    except Exception:
-        pass
-
-    # Versuche 2: Fallback über die kostenlose Open-Meteo Geocoding API (sehr schnell & zuverlässig)
+    # 1. Schnelle Open-Meteo API als primärer Dienst
     try:
         url = f"https://geocoding-api.open-meteo.com/v1/search?name={clean_plz}&count=1&language=de&format=json"
-        resp = requests.get(url, timeout=5)
+        resp = requests.get(url, timeout=2)
         if resp.status_code == 200:
             data = resp.json()
             if "results" in data and len(data["results"]) > 0:
-                lat = data["results"][0]["latitude"]
-                lon = data["results"][0]["longitude"]
-                return (lat, lon)
+                res = data["results"][0]
+                return (res["latitude"], res["longitude"])
+    except Exception:
+        pass
+
+    # 2. Fallback Nominatim mit Timeout
+    try:
+        geolocator = Nominatim(user_agent="festival_matcher_waldsprenger_v3")
+        location = geolocator.geocode(f"{clean_plz}, {land}", timeout=2)
+        if location:
+            return (location.latitude, location.longitude)
     except Exception:
         pass
 
