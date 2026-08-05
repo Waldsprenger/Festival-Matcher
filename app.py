@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS für den Metal-Vibe (Dark Mode, Red/Gold Accents, Card Styling)
+# Custom CSS für den Metal-Vibe und das Favoriten-Highlighting
 st.markdown("""
 <style>
     /* Haupt-Hintergrund & Textfarben */
@@ -36,16 +36,6 @@ st.markdown("""
         color: #D32F2F !important;
         font-family: 'Trebuchet MS', sans-serif;
         text-shadow: 1px 1px 2px #000000;
-    }
-
-    /* Custom Cards für Festivals */
-    .festival-card {
-        background-color: #1E1E1E;
-        border: 1px solid #333333;
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
     }
 
     /* Badges für Prozentzahlen */
@@ -72,6 +62,29 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
         font-size: 1.1em;
+    }
+
+    /* Favoriten Band Badge (Goldene Hervorhebung) */
+    .fav-band-badge {
+        background-color: #FFD700;
+        color: #000000;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        display: inline-block;
+        margin: 2px;
+        border: 1px solid #FFA000;
+    }
+
+    /* Normale Band Badge */
+    .normal-band-badge {
+        background-color: #333333;
+        color: #E0E0E0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin: 2px;
+        border: 1px solid #555555;
     }
 
     /* Primary Button Customization */
@@ -120,7 +133,7 @@ def load_festival_data():
 def parse_price(preis_str: str) -> float:
     """Extrahiert den ersten numerischen Preis aus dem Preistext."""
     if not preis_str or preis_str == "N/A":
-        return 9999.0  # Hoher Wert als Fallback für die Preis-Sortierung
+        return 9999.0  # Fallback für Sortierung
     match = re.search(r'(\d+[\.,]?\d*)', str(preis_str).replace(',', '.'))
     return float(match.group(1)) if match else 9999.0
 
@@ -137,7 +150,7 @@ def parse_start_date(datum_str: str):
     return None
 
 # ---------------------------------------------------------------------------
-# 3. SCHNELLE, OFFLINE GEODATEN-BERECHNUNG
+# 3. GEODATEN-BERECHNUNG (OFFLINE & SCHNELL)
 # ---------------------------------------------------------------------------
 
 PLZ_ZONE_COORDS = {
@@ -175,7 +188,7 @@ def get_coordinates(plz: str, land: str = "Deutschland"):
 
 def calculate_distance(coords1, coords2):
     if not coords1 or not coords2:
-        return 9999.0  # Hoher Wert als Fallback für die Distanz-Sortierung
+        return 9999.0
     lat1, lon1 = coords1
     lat2, lon2 = coords2
     R = 6371.0
@@ -189,7 +202,7 @@ def calculate_distance(coords1, coords2):
     return round(R * c, 1)
 
 # ---------------------------------------------------------------------------
-# 4. STREAMLIT UI
+# 4. STREAMLIT UI BUILDER
 # ---------------------------------------------------------------------------
 
 st.title("🤘 METAL & ROCK FESTIVAL MATCHING")
@@ -213,8 +226,7 @@ else:
 
     # --- SIDEBAR ---
     st.sidebar.header("📍 1. Standort & Kriterien")
-    # PLZ ohne Voreinstellung (leer)
-    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="", placeholder="z. B. 12345")
+    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="", placeholder="z. B. 68161")
     
     max_dist_km = st.sidebar.slider("Max. Entfernung (km):", min_value=10, max_value=2000, value=1000, step=20)
     max_price = st.sidebar.slider("Max. Preis (€):", min_value=0, max_value=600, value=500, step=10)
@@ -223,7 +235,7 @@ else:
     start_date_filter = st.sidebar.date_input("Festivals ab Datum:", value=today)
 
     st.sidebar.header("🎯 2. Band-Gewichtung")
-    st.sidebar.markdown("Bands in deiner Favoriten-Liste zählen **doppelt (2x)**.")
+    st.sidebar.markdown("Bands in deiner Favoriten-Liste zählen **doppelt (2x)** und werden **gold hervorgehoben**.")
 
     # --- HAUPTBEREICH: BANDAUSWAHL ---
     st.subheader("🎵 Wähle deine Bands aus")
@@ -238,7 +250,7 @@ else:
     double_weighted_norm_bands = []
     if selected_norm_bands:
         double_weighted_norm_bands = st.multiselect(
-            "⭐ Favoriten (doppelt gewichtet):",
+            "⭐ Favoriten (doppelt gewichtet & hervorgehoben):",
             options=selected_norm_bands,
             format_func=lambda x: display_bands_map[x],
             placeholder="Wähle deine absoluten Favoriten..."
@@ -272,17 +284,23 @@ else:
                 if user_coords and f_dist != 9999.0 and f_dist > max_dist_km:
                     continue
 
-                # 4. Band Scoring
+                # 4. Band Scoring & Favoriten-Markierung
                 f_bands_norm = {normalize_band_name(b) for b in f.get("bands", [])}
                 
                 matched_score = 0
-                matched_bands_display = []
+                matched_bands_html = []
 
                 for b in selected_norm_bands:
                     if b in f_bands_norm:
-                        weight = 2 if b in double_weighted_norm_bands else 1
+                        is_fav = b in double_weighted_norm_bands
+                        weight = 2 if is_fav else 1
                         matched_score += weight
-                        matched_bands_display.append(display_bands_map[b])
+                        
+                        band_display_name = display_bands_map[b]
+                        if is_fav:
+                            matched_bands_html.append(f'<span class="fav-band-badge">⭐ {band_display_name}</span>')
+                        else:
+                            matched_bands_html.append(f'<span class="normal-band-badge">{band_display_name}</span>')
 
                 match_percentage = round((matched_score / total_possible_score) * 100, 1)
 
@@ -290,8 +308,8 @@ else:
                     results.append({
                         "details": f,
                         "match_percentage": match_percentage,
-                        "matched_count": len(matched_bands_display),
-                        "matched_bands": matched_bands_display,
+                        "matched_count": len(matched_bands_html),
+                        "matched_bands_html": matched_bands_html,
                         "distance_km": f_dist if f_dist != 9999.0 else None,
                         "price_val": f_price if f_price != 9999.0 else None
                     })
@@ -303,7 +321,7 @@ else:
                 x["price_val"] if x["price_val"] is not None else 99999
             ))
 
-            # --- ERGEBNISSEN ANZEIGEN ---
+            # --- ERGEBNISSE ANZEIGEN ---
             st.markdown("---")
             st.subheader(f"📊 Auswertung ({len(results)} passende Festivals)")
 
@@ -325,8 +343,8 @@ else:
                     dist_str = f"ca. {item['distance_km']} km" if item['distance_km'] is not None else "N/A"
                     price_str = f"{item['price_val']} €" if item['price_val'] is not None else f.get('preis', 'N/A')
 
-                    with st.expander(f"🎸 {f['name']} — {match_pct}% Match ({item['matched_count']} Bands)", expanded=(match_pct >= 60)):
-                        # Header mit Prozent Badge & Name
+                    # DIE ÄNDERUNG: expanded=True schaltet alle Karten direkt ausgeklappt frei
+                    with st.expander(f"🎸 {f['name']} — {match_pct}% Match ({item['matched_count']} Bands)", expanded=True):
                         st.markdown(f"### {f['name']} &nbsp; {badge_html}", unsafe_allow_html=True)
                         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -344,8 +362,10 @@ else:
                                 st.markdown(f"👉 [**Zur offiziellen Festival-Website**]({f['webseite']})")
 
                         with col2:
-                            st.markdown("🎯 **Treffer bei deinen Bands:**")
-                            st.write(", ".join(item["matched_bands"]))
+                            st.markdown("🎯 **Gefundene Bands (⭐ = Favorit):**")
+                            bands_html_str = " ".join(item["matched_bands_html"])
+                            st.markdown(bands_html_str, unsafe_allow_html=True)
+                            st.markdown("<br>", unsafe_allow_html=True)
                             
                             with st.popover("📜 Vollständiges Lineup anzeigen"):
                                 st.write(", ".join(f.get("bands", [])))
