@@ -1,7 +1,7 @@
 [
   {
-    "name": "Alcatraz Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
+    "name": "Aalborg Metal Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/aalborg_metalfestival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -48,44 +48,8 @@
     "bands": []
   },
   {
-    "name": "Amphi Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/amphi_festival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
     "name": "Best Kept Secret Festival",
     "url_ticker": "https://www.festivalticker.de/festivals/best_kept_secret/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Aalborg Metal Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/aalborg_metalfestival/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Azkena Rock Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -108,6 +72,42 @@
     "bands": []
   },
   {
+    "name": "Azkena Rock Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/azkena_rock/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Amphi Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/amphi_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
+    "name": "Alcatraz Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/alcatraz_festival/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
     "name": "Bloodstock Open Air",
     "url_ticker": "https://www.festivalticker.de/festivals/bloodstock_open_air/",
     "datum": "N/A",
@@ -120,8 +120,8 @@
     "bands": []
   },
   {
-    "name": "Brutal Assault",
-    "url_ticker": "https://www.festivalticker.de/festivals/brutal_assault/",
+    "name": "Bochum Total",
+    "url_ticker": "https://www.festivalticker.de/festivals/bochum_total/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -132,8 +132,8 @@
     "bands": []
   },
   {
-    "name": "Bochum Total",
-    "url_ticker": "https://www.festivalticker.de/festivals/bochum_total/",
+    "name": "Brutal Assault",
+    "url_ticker": "https://www.festivalticker.de/festivals/brutal_assault/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -192,6 +192,18 @@
     "bands": []
   },
   {
+    "name": "Dark Easter Metal Meeting",
+    "url_ticker": "https://www.festivalticker.de/festivals/dark_easter_metal_meeting/",
+    "datum": "N/A",
+    "preis": "N/A",
+    "location": "N/A",
+    "plz": "N/A",
+    "ort": "N/A",
+    "land": "N/A",
+    "webseite": "N/A",
+    "bands": []
+  },
+  {
     "name": "Deichbrand Festival",
     "url_ticker": "https://www.festivalticker.de/festivals/deichbrand/",
     "datum": "N/A",
@@ -216,8 +228,8 @@
     "bands": []
   },
   {
-    "name": "Dark Easter Metal Meeting",
-    "url_ticker": "https://www.festivalticker.de/festivals/dark_easter_metal_meeting/",
+    "name": "Dong Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/dong_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -228,8 +240,8 @@
     "bands": []
   },
   {
-    "name": "Dong Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/dong_open_air/",
+    "name": "Download Festival",
+    "url_ticker": "https://www.festivalticker.de/festivals/download_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -254,18 +266,6 @@
   {
     "name": "Eindhoven Metal Meeting",
     "url_ticker": "https://www.festivalticker.de/festivals/eindhoven_metal_meeting/",
-    "datum": "N/A",
-    "preis": "N/A",
-    "location": "N/A",
-    "plz": "N/A",
-    "ort": "N/A",
-    "land": "N/A",
-    "webseite": "N/A",
-    "bands": []
-  },
-  {
-    "name": "Download Festival",
-    "url_ticker": "https://www.festivalticker.de/festivals/download_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -384,8 +384,8 @@
     "bands": []
   },
   {
-    "name": "Hellfest Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/hellfest/",
+    "name": "Headbangers Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/headbangers_open_air/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -396,8 +396,8 @@
     "bands": []
   },
   {
-    "name": "Headbangers Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/headbangers_open_air/",
+    "name": "Hellfest Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/hellfest/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -564,8 +564,8 @@
     "bands": []
   },
   {
-    "name": "Metalacker Tennenbronn",
-    "url_ticker": "https://www.festivalticker.de/festivals/metalacker_tennenbronn/",
+    "name": "MetalGate Czech Death Fest",
+    "url_ticker": "https://www.festivalticker.de/festivals/metalgate/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -576,8 +576,8 @@
     "bands": []
   },
   {
-    "name": "MetalGate Czech Death Fest",
-    "url_ticker": "https://www.festivalticker.de/festivals/metalgate/",
+    "name": "Metalacker Tennenbronn",
+    "url_ticker": "https://www.festivalticker.de/festivals/metalacker_tennenbronn/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1092,8 +1092,8 @@
     "bands": []
   },
   {
-    "name": "Vodafone Paredes de Coura",
-    "url_ticker": "https://www.festivalticker.de/festivals/paredes_de_coura_festival/",
+    "name": "Tuska Open Air",
+    "url_ticker": "https://www.festivalticker.de/festivals/tuska_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1104,8 +1104,8 @@
     "bands": []
   },
   {
-    "name": "Tuska Open Air",
-    "url_ticker": "https://www.festivalticker.de/festivals/tuska_festival/",
+    "name": "Vodafone Paredes de Coura",
+    "url_ticker": "https://www.festivalticker.de/festivals/paredes_de_coura_festival/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1128,8 +1128,8 @@
     "bands": []
   },
   {
-    "name": "Way Out West",
-    "url_ticker": "https://www.festivalticker.de/festivals/way_out_west/",
+    "name": "Zwarte Cross",
+    "url_ticker": "https://www.festivalticker.de/festivals/zwarte_cross/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
@@ -1140,8 +1140,8 @@
     "bands": []
   },
   {
-    "name": "Zwarte Cross",
-    "url_ticker": "https://www.festivalticker.de/festivals/zwarte_cross/",
+    "name": "Way Out West",
+    "url_ticker": "https://www.festivalticker.de/festivals/way_out_west/",
     "datum": "N/A",
     "preis": "N/A",
     "location": "N/A",
