@@ -35,84 +35,73 @@ def scrape_festival_details(url):
         if title_tag:
             data["name"] = title_tag.get_text(strip=True)
 
-        # 2. GENERISCHES AUSLESEN ALLER TABELLENZEILEN (Datum, Preis, Ort, Land, Webseite, Bands)
-        bands_raw_text = ""
+        # 2. METADATEN (Datum, Ort, Preis, Land, Webseite) aus div.finfo & Absätzen
+        page_text = soup.get_text()
+
+        # DATUM EXTRAHIEREN
+        datum_match = re.search(r'(\d{2}\.\d{2}\.\d{4}\s*(bis|-)\s*\d{2}\.\d{2}\.\d{4}|\d{2}\.\d{2}\.\d{4})', page_text)
+        if datum_match:
+            data["datum"] = datum_match.group(1)
+
+        # PREIS EXTRAHIEREN
+        preis_match = re.search(r'(ca\.\s*)?(\d+[\.,]?\d*)\s*(€|Euro)', page_text, re.IGNORECASE)
+        if preis_match:
+            data["preis"] = preis_match.group(0)
+
+        # ORT & PLZ EXTRAHIEREN
+        plz_ort_match = re.search(r'\b(\d{4,5})\s+([A-Za-zÄöüß\s\-\.]+)', page_text)
+        if plz_ort_match:
+            data["plz"] = plz_ort_match.group(1)
+            data["ort"] = plz_ort_match.group(2).split("\n")[0].strip()
+            data["location"] = f"{data['plz']} {data['ort']}"
+
+        # WEBSEITE (Sucht nach offizieller Homepage-Verlinkung)
+        for a in soup.find_all('a', href=True):
+            if "homepage" in a.get_text().lower() or "webseite" in a.get_text().lower() or "offizielle" in a.get_text().lower():
+                data["webseite"] = a['href']
+                break
+
+        # LAND (Sucht nach bekannten Ländern im Text)
+        laender = ["Deutschland", "Österreich", "Schweiz", "Belgien", "Niederlande", "Tschechien", "Frankreich", "Polen", "Spanien", "Großbritannien", "Dänemark"]
+        for land in laender:
+            if re.search(r'\b' + land + r'\b', page_text, re.IGNORECASE):
+                data["land"] = land
+                break
+
+        # 3. BANDS PARSEN & BEREINIGEN (Links & Textabschnitte)
+        unique_bands = []
+        seen_normalized = set()
+
+        # Methode A: Suche nach echten Band-Links (/bands/...)
+        band_links = soup.find_all('a', href=re.compile(r'/bands/'))
         
-        for tr in soup.find_all('tr'):
-            tds = tr.find_all('td')
-            if len(tds) < 2:
-                continue
+        for a in band_links:
+            band_name = a.get_text(strip=True)
+            norm = re.sub(r'\s+', ' ', band_name).lower()
             
-            # Beschriftung (linke Zelle) & Wert (rechte Zelle)
-            label = tds[0].get_text(strip=True).lower()
-            val_td = tds[1]
-            val_text = val_td.get_text(strip=True)
+            # Phrasen wie "und weitere", "mehr Bands" filtern
+            if norm and norm not in seen_normalized and not any(p in norm for p in ["und weitere", "weitere", "mehr", "bands", "lineup"]):
+                seen_normalized.add(norm)
+                unique_bands.append(band_name)
 
-            if "datum" in label:
-                data["datum"] = val_text
-            elif "preis" in label or "ticket" in label:
-                data["preis"] = val_text
-            elif "ort" in label or "location" in label or "plz" in label:
-                data["location"] = val_text
-                # PLZ herausfiltern (4- oder 5-stellig)
-                plz_match = re.search(r'\b(\d{4,5})\b', val_text)
-                if plz_match:
-                    data["plz"] = plz_match.group(1)
-                
-                # Ort bereinigen (PLZ entfernen)
-                ort_clean = re.sub(r'\b\d{4,5}\b', '', val_text).strip()
-                if ort_clean:
-                    data["ort"] = ort_clean
-            elif "land" in label:
-                data["land"] = val_text
-            elif "web" in label or "homepage" in label or "seite" in label:
-                link = val_td.find('a')
-                if link and link.has_attr('href'):
-                    data["webseite"] = link['href']
-                else:
-                    data["webseite"] = val_text
-            elif "band" in label:
-                # Bands aus der Zelle sichern
-                bands_raw_text = val_td.get_text(separator=", ", strip=True)
+        # Methode B: Fallback (Falls die Bands im normalen Text stehen)
+        if not unique_bands:
+            bands_block = soup.find(lambda tag: tag.name in ['div', 'p', 'td'] and 'bands' in tag.get_text().lower())
+            if bands_block:
+                raw_text = bands_block.get_text()
+                # Text wie "... und weitere 15 Bands" wegschneiden
+                raw_text = re.sub(r'(\.\.\.\s*)?und\s+weitere.*$', '', raw_text, flags=re.IGNORECASE)
+                raw_text = re.sub(r'\b(u\.v\.m\.|u\.a\.|\.\.\.)\b', '', raw_text, flags=re.IGNORECASE)
 
-        # Falls Bands nicht in der Tabelle lagen: Fallback-Suche im gesamten Dokument
-        if not bands_raw_text:
-            bands_header = soup.find(lambda tag: tag.name in ['td', 'th', 'div', 'strong', 'b'] and 'bands' in tag.get_text().lower())
-            if bands_header:
-                parent = bands_header.find_parent('tr') or bands_header.find_parent('div')
-                if parent:
-                    bands_raw_text = parent.get_text(separator=", ", strip=True)
+                raw_list = re.split(r'[,;\n]', raw_text)
+                for b in raw_list:
+                    clean_b = re.sub(r'^[\.\,\s\-]+|[\.\,\s\-]+$', '', b).strip()
+                    norm = re.sub(r'\s+', ' ', clean_b).lower()
+                    if clean_b and norm not in seen_normalized and norm not in ["und weitere", "u.v.m.", "u.a.", "...", "und", "weitere", "bands:"]:
+                        seen_normalized.add(norm)
+                        unique_bands.append(clean_b)
 
-        # 3. BANDS SAUBER PARSEN & ENTHALTENE PHRASEN / DUPLIKATE ENTFERNEN
-        if bands_raw_text:
-            # Entferne "Bands:", "... und weitere X Bands", "u.v.m.", "u.a."
-            clean_str = re.sub(r'^bands\s*:\s*', '', bands_raw_text, flags=re.IGNORECASE)
-            clean_str = re.sub(r'(\.\.\.\s*)?und\s+weitere.*$', '', clean_str, flags=re.IGNORECASE)
-            clean_str = re.sub(r'\b(u\.v\.m\.|u\.a\.|\.\.\.)\b', '', clean_str, flags=re.IGNORECASE)
-
-            # Aufspalten an Kommas, Semikolons oder Zeilenumbrüchen
-            raw_list = re.split(r'[,;\n]', clean_str)
-            
-            unique_bands = []
-            seen_normalized = set()
-
-            for b in raw_list:
-                clean_b = b.strip()
-                # Führende/Anhängende Sonderzeichen löschen
-                clean_b = re.sub(r'^[\.\,\s\-]+|[\.\,\s\-]+$', '', clean_b).strip()
-                
-                # Normalisierte Form für Duplikatsvergleich (Kleinschreibung & einfache Leerzeichen)
-                norm = re.sub(r'\s+', ' ', clean_b).lower()
-
-                # Leere oder unnütze Phrasen überspringen
-                if not clean_b or norm in ["und weitere", "u.v.m.", "u.a.", "...", "und", "weitere", "bands", "bands:"]:
-                    continue
-
-                if norm not in seen_normalized:
-                    seen_normalized.add(norm)
-                    unique_bands.append(clean_b)
-
-            data["bands"] = unique_bands
+        data["bands"] = unique_bands
 
     except Exception as e:
         print(f"Fehler beim Scrapen von {url}: {e}")
