@@ -3,5 +3,6 @@ pandas
 geopy
 requests
 beautifulsoup4
-pypcode
+folium
+streamlit-folium
 starlette<0.40.0
