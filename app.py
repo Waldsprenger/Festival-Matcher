@@ -37,23 +37,27 @@ def load_festival_data():
         return [], f"Fehler beim Laden der Datei: {e}"
 
 # ---------------------------------------------------------------------------
-# GEODATEN-FUNKTION (SCHNELL & OHNE HÄNGEN)
+# GEODATEN-FUNKTION (PLZ-PROFILING FIX)
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_coordinates(plz: str, land: str = "Deutschland"):
-    """Ermittelt Breiten- und Längengrad ohne das UI zu blockieren."""
-    if not plz or plz == "N/A":
+    """Ermittelt Breiten- und Längengrad zuverlässig für EU/DE Postleitzahlen."""
+    if not plz or str(plz).strip() in ["N/A", "None", ""]:
         return None
 
     clean_plz = re.sub(r'[^a-zA-Z0-9]', '', str(plz)).strip()
     if not clean_plz:
         return None
 
-    # 1. Schnelle Open-Meteo API als primärer Dienst
+    # Land bestimmen/normalisieren
+    land_str = land if land and land != "N/A" else "Deutschland"
+
+    # 1. Open-Meteo API mit explizitem Suchstring (z.B. "PLZ 68161 Germany")
     try:
-        url = f"https://geocoding-api.open-meteo.com/v1/search?name={clean_plz}&count=1&language=de&format=json"
-        resp = requests.get(url, timeout=2)
+        query = f"PLZ {clean_plz} {land_str}"
+        url = f"https://geocoding-api.open-meteo.com/v1/search?name={requests.utils.quote(query)}&count=1&language=de&format=json"
+        resp = requests.get(url, timeout=3)
         if resp.status_code == 200:
             data = resp.json()
             if "results" in data and len(data["results"]) > 0:
@@ -62,12 +66,19 @@ def get_coordinates(plz: str, land: str = "Deutschland"):
     except Exception:
         pass
 
-    # 2. Fallback Nominatim mit Timeout
+    # 2. Nominatim Fallback mit strukturierter Abfrage
     try:
-        geolocator = Nominatim(user_agent="festival_matcher_waldsprenger_v3")
-        location = geolocator.geocode(f"{clean_plz}, {land}", timeout=2)
+        geolocator = Nominatim(user_agent="festival_matcher_waldsprenger_v4")
+        # Suchstring gezielt formatieren
+        search_term = f"{clean_plz}, {land_str}"
+        location = geolocator.geocode(search_term, timeout=3)
         if location:
             return (location.latitude, location.longitude)
+
+        # Zweiter Versuch: Nur PLZ + Germany
+        location_fallback = geolocator.geocode(f"{clean_plz} Germany", timeout=3)
+        if location_fallback:
+            return (location_fallback.latitude, location_fallback.longitude)
     except Exception:
         pass
 
