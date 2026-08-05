@@ -1,0 +1,49 @@
+name: Daily Festival Scraper
+
+on:
+  schedule:
+    # Bsp.: Täglich um 03:00 Uhr UTC (05:00 Uhr deutscher Sommerzeit)
+    - cron: '0 3 * * *'
+  # Erlaubt es dir, den Scraper jederzeit manuell über GitHub zu starten
+  workflow_dispatch:
+
+jobs:
+  scrape-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Repository auschecken
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Python-Umgebung einrichten
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. Benötigte Bibliotheken installieren
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      # 4. Scraper-Skript ausführen
+      - name: Run Festival Scraper
+        run: |
+          python festival_scraper.py
+
+      # 5. Geänderte festivals.json zurück in GitHub committen und pitchen
+      - name: Commit and Push Updated Data
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "actions@github.com"
+          git add festivals.json
+          
+          # Prüfen, ob sich die JSON überhaupt verändert hat
+          if git diff --staged --quiet; then
+            echo "Keine Änderungen in festivals.json gefunden."
+          else
+            git commit -m "auto: Daily update of festivals.json"
+            git push
+          fi
