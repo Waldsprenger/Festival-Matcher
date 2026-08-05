@@ -6,7 +6,92 @@ from datetime import datetime, date
 import math
 
 # ---------------------------------------------------------------------------
-# 1. HELFER-FUNKTIONEN: DATA LOADING & BAND-NORMALISIERUNG
+# 1. PAGE CONFIG & METAL-THEME CUSTOM CSS
+# ---------------------------------------------------------------------------
+
+st.set_page_config(
+    page_title="Festival Matcher 🤘", 
+    page_icon="🤘", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS für den Metal-Vibe (Dark Mode, Red/Gold Accents, Card Styling)
+st.markdown("""
+<style>
+    /* Haupt-Hintergrund & Textfarben */
+    .stApp {
+        background-color: #121212;
+        color: #E0E0E0;
+    }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #1A1A1A;
+        border-right: 1px solid #333333;
+    }
+
+    /* Überschriften */
+    h1, h2, h3 {
+        color: #D32F2F !important;
+        font-family: 'Trebuchet MS', sans-serif;
+        text-shadow: 1px 1px 2px #000000;
+    }
+
+    /* Custom Cards für Festivals */
+    .festival-card {
+        background-color: #1E1E1E;
+        border: 1px solid #333333;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Badges für Prozentzahlen */
+    .badge-high {
+        background-color: #2E7D32;
+        color: #FFFFFF;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+    .badge-mid {
+        background-color: #E65100;
+        color: #FFFFFF;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+    .badge-low {
+        background-color: #C62828;
+        color: #FFFFFF;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+
+    /* Primary Button Customization */
+    div.stButton > button[kind="primary"] {
+        background-color: #B71C1C;
+        color: white;
+        border: none;
+        font-weight: bold;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #D32F2F;
+        box-shadow: 0 0 10px #D32F2F;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 2. HELFER-FUNKTIONEN: DATA LOADING & BAND-NORMALISIERUNG
 # ---------------------------------------------------------------------------
 
 def normalize_band_name(name: str) -> str:
@@ -35,9 +120,9 @@ def load_festival_data():
 def parse_price(preis_str: str) -> float:
     """Extrahiert den ersten numerischen Preis aus dem Preistext."""
     if not preis_str or preis_str == "N/A":
-        return 0.0
+        return 9999.0  # Hoher Wert als Fallback für die Preis-Sortierung
     match = re.search(r'(\d+[\.,]?\d*)', str(preis_str).replace(',', '.'))
-    return float(match.group(1)) if match else 0.0
+    return float(match.group(1)) if match else 9999.0
 
 def parse_start_date(datum_str: str):
     """Parses the start date from 'DD.MM.YYYY bis DD.MM.YYYY' or 'DD.MM.YYYY'."""
@@ -52,81 +137,48 @@ def parse_start_date(datum_str: str):
     return None
 
 # ---------------------------------------------------------------------------
-# 2. SCHNELLE, OFFLINE GEODATEN-BERECHNUNG (OHNE API-BLOCKADEN)
+# 3. SCHNELLE, OFFLINE GEODATEN-BERECHNUNG
 # ---------------------------------------------------------------------------
 
-# Lokales Nachschlagen deutscher PLZ-Leitzonen (Bereiche 0-9) für schnelle Koordinaten
 PLZ_ZONE_COORDS = {
-    "0": (51.05, 13.73), # Dresden / Sachsen
-    "1": (52.52, 13.40), # Berlin / Brandenburg
-    "2": (53.55, 9.99),  # Hamburg / Norddeutschland
-    "3": (52.37, 9.73),  # Hannover / Niedersachsen
-    "4": (51.45, 7.01),  # Essen / NRW
-    "5": (50.93, 6.95),  # Köln / Rheinland
-    "6": (49.48, 8.46),  # Mannheim / Hessen / RL-Pfalz (68161 fällt exakt hierher!)
-    "7": (48.77, 9.18),  # Stuttgart / Baden-Württemberg
-    "8": (48.13, 11.57), # München / Bayern
-    "9": (49.45, 11.07), # Nürnberg / Nordbayern
+    "0": (51.05, 13.73), "1": (52.52, 13.40), "2": (53.55, 9.99),
+    "3": (52.37, 9.73),  "4": (51.45, 7.01),  "5": (50.93, 6.95),
+    "6": (49.48, 8.46),  "7": (48.77, 9.18),  "8": (48.13, 11.57),
+    "9": (49.45, 11.07),
 }
 
-# Koordinaten-Anker für europäische Nachbarländer
 COUNTRY_COORDS = {
-    "Deutschland": (51.16, 10.45),
-    "Germany": (51.16, 10.45),
-    "Österreich": (47.51, 14.55),
-    "Austria": (47.51, 14.55),
-    "Schweiz": (46.81, 8.22),
-    "Switzerland": (46.81, 8.22),
-    "Belgien": (50.50, 4.46),
-    "Belgium": (50.50, 4.46),
-    "Niederlande": (52.13, 5.29),
-    "Netherlands": (52.13, 5.29),
-    "Polen": (51.91, 19.14),
-    "Poland": (51.91, 19.14),
-    "Tschechien": (49.81, 15.47),
-    "Czech Republic": (49.81, 15.47),
-    "Tschechische Republik": (49.81, 15.47),
-    "Frankreich": (46.22, 2.21),
-    "France": (46.22, 2.21),
-    "Spanien": (40.46, -3.74),
-    "Spain": (40.46, -3.74),
-    "Großbritannien": (55.37, -3.43),
-    "United Kingdom": (55.37, -3.43),
-    "UK": (55.37, -3.43),
-    "Norwegen": (60.47, 8.46),
-    "Norway": (60.47, 8.46),
-    "Schweden": (60.12, 18.64),
-    "Sweden": (60.12, 18.64),
-    "Finnland": (61.92, 25.74),
-    "Finland": (61.92, 25.74)
+    "Deutschland": (51.16, 10.45), "Germany": (51.16, 10.45),
+    "Österreich": (47.51, 14.55), "Austria": (47.51, 14.55),
+    "Schweiz": (46.81, 8.22), "Switzerland": (46.81, 8.22),
+    "Belgien": (50.50, 4.46), "Belgium": (50.50, 4.46),
+    "Niederlande": (52.13, 5.29), "Netherlands": (52.13, 5.29),
+    "Polen": (51.91, 19.14), "Poland": (51.91, 19.14),
+    "Tschechien": (49.81, 15.47), "Czech Republic": (49.81, 15.47),
+    "Frankreich": (46.22, 2.21), "France": (46.22, 2.21),
+    "Spanien": (40.46, -3.74), "Spain": (40.46, -3.74),
+    "Großbritannien": (55.37, -3.43), "United Kingdom": (55.37, -3.43),
+    "Norwegen": (60.47, 8.46), "Schweden": (60.12, 18.64), "Finnland": (61.92, 25.74)
 }
 
 def get_coordinates(plz: str, land: str = "Deutschland"):
-    """
-    Berechnet Koordinaten zu 100% lokal, ohne Netzwerk-Requests und ohne Fehler.
-    """
     if not plz or str(plz).strip() in ["N/A", "None", ""]:
-        # Fallback auf Landeskoordinaten
         return COUNTRY_COORDS.get(land, COUNTRY_COORDS["Deutschland"])
 
     clean_plz = re.sub(r'[^0-9]', '', str(plz)).strip()
-    
-    # Wenn deutsche PLZ (5 Stellen oder Zone vorhanden)
     if clean_plz and len(clean_plz) >= 1:
         first_digit = clean_plz[0]
         if first_digit in PLZ_ZONE_COORDS and (not land or land in ["Deutschland", "Germany"]):
             return PLZ_ZONE_COORDS[first_digit]
 
-    # Sonst Land-Mittelpunkt zurückgeben
     return COUNTRY_COORDS.get(land, COUNTRY_COORDS["Deutschland"])
 
 def calculate_distance(coords1, coords2):
-    """Berechnet die Entfernung in km via Haversine-Formel (Offline)."""
     if not coords1 or not coords2:
-        return None
+        return 9999.0  # Hoher Wert als Fallback für die Distanz-Sortierung
     lat1, lon1 = coords1
     lat2, lon2 = coords2
-    R = 6371.0  # Erdradius in km
+    R = 6371.0
 
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -137,21 +189,18 @@ def calculate_distance(coords1, coords2):
     return round(R * c, 1)
 
 # ---------------------------------------------------------------------------
-# 3. STREAMLIT UI BUILDER
+# 4. STREAMLIT UI
 # ---------------------------------------------------------------------------
 
-st.set_page_config(page_title="Festival Matcher & Finder", page_icon="🤘", layout="wide")
+st.title("🤘 METAL & ROCK FESTIVAL MATCHING")
+st.markdown("Finde heraus, welches Festival deinen Lineup-Geschmack am besten trifft!")
 
-st.title("🤘 Metal & Rock Festival Matcher")
-st.markdown("Finde das perfekte Festival basierend auf deinen Lieblingsbands, deinem Standort und deinem Budget!")
-
-# Daten laden
 festivals, last_update = load_festival_data()
 
 if not festivals:
-    st.warning("⚠️ Keine Festival-Daten gefunden. Stellen Sie sicher, dass der GitHub Scraper gelaufen ist und `festivals_data.json` im Hauptverzeichnis liegt.")
+    st.warning("⚠️ Keine Festival-Daten gefunden. Bitte führe zuerst den Scraper aus.")
 else:
-    # --- ALLE BANDS SAMMELN & BEREINIGEN ---
+    # Band-Liste vorbereiten
     raw_band_map = {}
     for f in festivals:
         for b in f.get("bands", []):
@@ -162,65 +211,68 @@ else:
     sorted_normalized_bands = sorted(raw_band_map.keys(), key=lambda s: s.lower())
     display_bands_map = {norm: raw_band_map[norm] for norm in sorted_normalized_bands}
 
-    # --- SIDEBAR: FILTER & EINSTELLUNGEN ---
-    st.sidebar.header("📍 1. Standort & Filter")
-    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="68161")
+    # --- SIDEBAR ---
+    st.sidebar.header("📍 1. Standort & Kriterien")
+    # PLZ ohne Voreinstellung (leer)
+    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="", placeholder="z. B. 12345")
     
-    max_dist_km = st.sidebar.slider("Maximale Entfernung (km):", min_value=10, max_value=2000, value=800, step=10)
-    max_price = st.sidebar.slider("Maximaler Preis (€):", min_value=0, max_value=600, value=400, step=10)
+    max_dist_km = st.sidebar.slider("Max. Entfernung (km):", min_value=10, max_value=2000, value=1000, step=20)
+    max_price = st.sidebar.slider("Max. Preis (€):", min_value=0, max_value=600, value=500, step=10)
     
     today = date.today()
-    start_date_filter = st.sidebar.date_input("Festival ab Datum:", value=today)
+    start_date_filter = st.sidebar.date_input("Festivals ab Datum:", value=today)
 
     st.sidebar.header("🎯 2. Band-Gewichtung")
-    st.sidebar.markdown("Standard-Bands haben einfaches Gewicht (**1x**). Bands in der Favoriten-Liste zählen **doppelt (2x)**.")
+    st.sidebar.markdown("Bands in deiner Favoriten-Liste zählen **doppelt (2x)**.")
 
-    # --- HAUPTBEREICH: BAND-AUSWAHL ---
+    # --- HAUPTBEREICH: BANDAUSWAHL ---
     st.subheader("🎵 Wähle deine Bands aus")
     
     selected_norm_bands = st.multiselect(
-        "Suche und wähle Bands aus:",
+        "Deine Wunschbands:",
         options=sorted_normalized_bands,
-        format_func=lambda x: display_bands_map[x]
+        format_func=lambda x: display_bands_map[x],
+        placeholder="Wähle Bands aus..."
     )
 
     double_weighted_norm_bands = []
     if selected_norm_bands:
         double_weighted_norm_bands = st.multiselect(
-            "⭐ Diese ausgewählten Bands doppelt gewichten (Favoriten):",
+            "⭐ Favoriten (doppelt gewichtet):",
             options=selected_norm_bands,
-            format_func=lambda x: display_bands_map[x]
+            format_func=lambda x: display_bands_map[x],
+            placeholder="Wähle deine absoluten Favoriten..."
         )
 
-    # --- MATCHING-LOGIK ---
-    if st.button("🚀 Festivals auswerten", type="primary") or selected_norm_bands:
+    # --- MATCHING LOGIK & SORTIERUNG ---
+    if st.button("🚀 FESTIVALS AUSWERTEN", type="primary") or selected_norm_bands:
         if not selected_norm_bands:
-            st.info("Bitte wähle mindestens eine Band aus, um das Matching zu starten.")
+            st.info("Bitte wähle mindestens eine Band aus, um die Auswertung zu starten.")
         else:
-            user_coords = get_coordinates(user_plz, "Deutschland")
+            user_coords = get_coordinates(user_plz, "Deutschland") if user_plz else None
 
             total_possible_score = sum(2 if b in double_weighted_norm_bands else 1 for b in selected_norm_bands)
             results = []
 
             for f in festivals:
-                # 1. Datums-Filter
+                # 1. Datum Filter
                 f_date = parse_start_date(f.get("datum", ""))
                 if f_date and f_date < start_date_filter:
                     continue
 
-                # 2. Preis-Filter
+                # 2. Preis Filter
                 f_price = parse_price(f.get("preis", ""))
-                if f_price > 0 and f_price > max_price:
+                if f_price != 9999.0 and f_price > max_price:
                     continue
 
-                # 3. Entfernungs-Filter
+                # 3. Entfernung Filter
                 f_coords = get_coordinates(f.get("plz"), f.get("land", "Deutschland"))
-                f_dist = calculate_distance(user_coords, f_coords)
+                f_dist = calculate_distance(user_coords, f_coords) if user_coords else 9999.0
                 
-                if f_dist is not None and f_dist > max_dist_km:
+                if user_coords and f_dist != 9999.0 and f_dist > max_dist_km:
                     continue
 
-                # 4. Band-Score berechnen
+                # 4. Band Scoring
                 f_bands_norm = {normalize_band_name(b) for b in f.get("bands", [])}
                 
                 matched_score = 0
@@ -240,49 +292,69 @@ else:
                         "match_percentage": match_percentage,
                         "matched_count": len(matched_bands_display),
                         "matched_bands": matched_bands_display,
-                        "distance_km": f_dist,
-                        "price_val": f_price
+                        "distance_km": f_dist if f_dist != 9999.0 else None,
+                        "price_val": f_price if f_price != 9999.0 else None
                     })
 
-            # Ergebnisse nach Prozentualer Übereinstimmung absteigend sortieren
-            results.sort(key=lambda x: x["match_percentage"], reverse=True)
+            # SORTIERUNG: 1. Match % (absteigend), 2. Entfernung (aufsteigend), 3. Preis (aufsteigend)
+            results.sort(key=lambda x: (
+                -x["match_percentage"],
+                x["distance_km"] if x["distance_km"] is not None else 99999,
+                x["price_val"] if x["price_val"] is not None else 99999
+            ))
 
-            # --- ERGEBNIS-ANZEIGE ---
+            # --- ERGEBNISSEN ANZEIGEN ---
             st.markdown("---")
-            st.subheader(f"📊 Auswertung ({len(results)} passende Festivals gefunden)")
+            st.subheader(f"📊 Auswertung ({len(results)} passende Festivals)")
 
             if not results:
-                st.warning("Keine Festivals gefunden, die zu deinen Filterkriterien und Bandauswahlen passen.")
+                st.warning("Keine Festivals für deine Filter- und Bandkriterien gefunden.")
             else:
                 for item in results:
                     f = item["details"]
                     match_pct = item["match_percentage"]
-                    dist_str = f"ca. {item['distance_km']} km" if item['distance_km'] is not None else "N/A"
                     
-                    with st.expander(f"**{f['name']}** — Match: **{match_pct}%** ({item['matched_count']} Bands)", expanded=(match_pct >= 50)):
-                        col1, col2 = st.columns([1, 2])
+                    # Farbliches Badge für Prozentzahl
+                    if match_pct >= 75:
+                        badge_html = f'<span class="badge-high">{match_pct}% MATCH</span>'
+                    elif match_pct >= 50:
+                        badge_html = f'<span class="badge-mid">{match_pct}% MATCH</span>'
+                    else:
+                        badge_html = f'<span class="badge-low">{match_pct}% MATCH</span>'
+
+                    dist_str = f"ca. {item['distance_km']} km" if item['distance_km'] is not None else "N/A"
+                    price_str = f"{item['price_val']} €" if item['price_val'] is not None else f.get('preis', 'N/A')
+
+                    with st.expander(f"🎸 {f['name']} — {match_pct}% Match ({item['matched_count']} Bands)", expanded=(match_pct >= 60)):
+                        # Header mit Prozent Badge & Name
+                        st.markdown(f"### {f['name']} &nbsp; {badge_html}", unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+
+                        col1, col2 = st.columns([1.2, 2])
                         
                         with col1:
-                            st.write(f"📅 **Datum:** {f.get('datum', 'N/A')}")
-                            st.write(f"💰 **Preis:** {f.get('preis', 'N/A')}")
-                            st.write(f"📍 **Ort:** {f.get('location', 'N/A')}, {f.get('plz', '')} {f.get('ort', 'N/A')} ({f.get('land', '')})")
-                            st.write(f"🚗 **Entfernung:** {dist_str}")
+                            st.info(f"""
+                            📅 **Datum:** {f.get('datum', 'N/A')}  
+                            💰 **Preis:** {price_str}  
+                            📍 **Ort:** {f.get('location', 'N/A')}, {f.get('plz', '')} {f.get('ort', 'N/A')} ({f.get('land', '')})  
+                            🚗 **Entfernung:** {dist_str}
+                            """)
                             
                             if f.get("webseite") and f.get("webseite") != "N/A":
-                                st.markdown(f"🔗 [Zur offiziellen Website]({f['webseite']})")
+                                st.markdown(f"👉 [**Zur offiziellen Festival-Website**]({f['webseite']})")
 
                         with col2:
-                            st.write("🎯 **Gefundene Bands:**")
+                            st.markdown("🎯 **Treffer bei deinen Bands:**")
                             st.write(", ".join(item["matched_bands"]))
                             
-                            with st.popover("Gesamtes Lineup anzeigen"):
+                            with st.popover("📜 Vollständiges Lineup anzeigen"):
                                 st.write(", ".join(f.get("bands", [])))
 
-# --- FUSSZEILE ---
+# --- FOOTER ---
 st.markdown("<br><hr>", unsafe_allow_html=True)
 st.markdown(
-    f"<div style='text-align: center; color: gray; font-size: 0.85em;'>"
-    f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions"
+    f"<div style='text-align: center; color: #777777; font-size: 0.85em;'>"
+    f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions 🤘"
     f"</div>",
     unsafe_allow_html=True
 )
