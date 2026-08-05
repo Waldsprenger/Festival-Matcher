@@ -18,7 +18,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS für Metal-Vibe und Clean UI
 st.markdown("""
 <style>
     .stApp {
@@ -188,6 +187,21 @@ def calculate_distance(coords1, coords2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return round(R * c, 1)
 
+def get_dynamic_zoom(radius_km: float) -> int:
+    """Berechnet dynamisch das ideale Zoom-Level basierend auf dem Radius in km."""
+    if radius_km <= 50:
+        return 9
+    elif radius_km <= 150:
+        return 8
+    elif radius_km <= 300:
+        return 7
+    elif radius_km <= 600:
+        return 6
+    elif radius_km <= 1200:
+        return 5
+    else:
+        return 4
+
 # ---------------------------------------------------------------------------
 # 3. STREAMLIT UI BUILDER
 # ---------------------------------------------------------------------------
@@ -213,10 +227,11 @@ else:
     # --- SIDEBAR: FILTER ---
     st.sidebar.header("📍 1. Standort & Kriterien")
     
+    # PLZ Beispiel auf 12345 geändert
     user_plz = st.sidebar.text_input(
         "Deine PLZ:", 
         value="", 
-        placeholder="z. B. 68161",
+        placeholder="z. B. 12345",
         help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
     )
     
@@ -245,7 +260,6 @@ else:
         help="Filtert Festivals, deren Ticketpreis über diesem Budget liegt."
     )
     
-    # DATUMS-SELEKTION: Erlaubt Vergangenheit, zeigt aber bei Bedarf eine Warnung
     today = date.today()
     start_date_filter = st.sidebar.date_input(
         "Festivals ab Datum:", 
@@ -253,7 +267,6 @@ else:
         help="Wähle ein Startdatum. Wenn du ein Datum in der Vergangenheit wählst, werden auch bereits abgelaufene Festivals angezeigt."
     )
 
-    # WARNHINWEIS FÜR VERGANGENE DATEN
     if start_date_filter < today:
         st.sidebar.warning("⚠️ **Hinweis:** Du hast ein Datum in der Vergangenheit gewählt. Es werden auch abgelaufene Festivals angezeigt.")
 
@@ -280,12 +293,15 @@ else:
             help="Favoriten geben die doppelte Punkteanzahl im Algorithmus!"
         )
 
-    # --- VISUELLE RADIUS-KARTE ---
+    # --- VISUELLE RADIUS-KARTE MIT DYNAMISCHEM ZOOM ---
     if user_plz:
         user_coords = get_coordinates(user_plz, "Deutschland")
         if user_coords:
             with st.expander("🗺️ Standort & Entfernungsradius auf der Karte anzeigen", expanded=False):
-                m = folium.Map(location=user_coords, zoom_start=6, tiles="CartoDB dark_matter")
+                # Dynamisches Zoom-Level anhand der ausgewählten Kilometer berechnen
+                dynamic_zoom = get_dynamic_zoom(max_dist_km)
+                
+                m = folium.Map(location=user_coords, zoom_start=dynamic_zoom, tiles="CartoDB dark_matter")
                 folium.Marker(
                     location=user_coords,
                     popup="Dein Standort",
@@ -318,7 +334,7 @@ else:
                     if country_filter.lower() not in f_land.lower():
                         continue
 
-                # 1. Datum Filter (Filtert je nach eingestelltem Startdatum)
+                # 1. Datum Filter
                 f_date = parse_start_date(f.get("datum", ""))
                 if f_date and f_date < start_date_filter:
                     continue
@@ -444,7 +460,7 @@ with col_f2:
         **Diensteanbieter gemäß § 5 DDG:**  
         [Dein Name / Name deines Projekts]  
         [Musterstraße 1]  
-        [68161 Mannheim]  
+        [12345 Musterstadt]  
         **E-Mail:** [deine-email@beispiel.de]  
         """)
         
