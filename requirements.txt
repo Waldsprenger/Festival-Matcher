@@ -1,8 +1,0 @@
-streamlit
-pandas
-geopy
-requests
-beautifulsoup4
-folium
-streamlit-folium
-starlette<0.40.0
