@@ -185,14 +185,36 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
         if m_bands_same and m_bands_same.group(1).strip():
             bands_text = m_bands_same.group(1)
         else:
-            m_bands_next = re.search(r'<strong>\s*Bands:\s*</strong>.*?</tr>\s*<tr>\s*<td[^>]*>(?:<br\s*/?>)*(.*?)(?:<br\s*/?>)*</td>', html, re.IGNORECASE)
+            m_bands_next = re.search(r'<strong>\s*Bands:\s*</strong>.*?</tr>\s*<tr>\s*<td[^>]*>(?:<br\s*/?>)*(.*?)(?:<br\s*/?>)*td>', html, re.IGNORECASE)
             if m_bands_next:
                 bands_text = m_bands_next.group(1)
 
         if bands_text:
-            cleaned_bands = re.sub(r'<[^>]+>', '', bands_text).strip()
-            if cleaned_bands:
-                data["bands"] = [b.strip() for b in cleaned_bands.split(",") if b.strip()]
+            cleaned_text = re.sub(r'<[^>]+>', '', bands_text).strip()
+            
+            # Ungefragte Zusatztexte am Ende entfernen
+            cleaned_text = re.sub(r'(\,\s*)?(und\s+weitere\b|\.\.\.|\b u\.v\.m\b|\b u\.a\b).*$', '', cleaned_text, flags=re.IGNORECASE).strip()
+            
+            if cleaned_text:
+                raw_bands = [b.strip() for b in cleaned_text.split(",") if b.strip()]
+                
+                # Duplikate entfernen & Schreibweisen normalisieren (Preserve order)
+                unique_bands = []
+                seen_normalized = set()
+                
+                for band in raw_bands:
+                    # Entfernt störende Sonderzeichen, mehrfache Leerzeichen für die Überprüfung
+                    norm = re.sub(r'\s+', ' ', band).strip().lower()
+                    
+                    # Ignoriere rein verbliebenePhrasen
+                    if norm in ["und weitere", "u.v.m.", "u.a.", "..."]:
+                        continue
+                        
+                    if norm not in seen_normalized:
+                        seen_normalized.add(norm)
+                        unique_bands.append(band)
+
+                data["bands"] = unique_bands
 
     except Exception as e:
         print(f"Fehler bei {festival_name} ({url}): {e}")
