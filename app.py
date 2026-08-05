@@ -12,7 +12,7 @@ from streamlit_folium import st_folium
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Festival Matcher 🤘", 
+    page_title="Festival-Matcher 🤘", 
     page_icon="🤘", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -289,7 +289,7 @@ else:
     st.sidebar.markdown("---")
     st.sidebar.markdown("☕ **Projekt unterstützen**")
     st.sidebar.markdown(
-        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">🍺 Bier / Kaffee spenden</a>',
+        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button"> Mein nächstes Festival finanzieren!</a>',
         unsafe_allow_html=True
     )
 
@@ -485,7 +485,7 @@ with col_f1:
 
 with col_f2:
     st.markdown(
-        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">💳 Spenden über PayPal</a>',
+        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">💳 Mein nächstes Festival finanzieren!</a>',
         unsafe_allow_html=True
     )
 
