@@ -12,7 +12,7 @@ from streamlit_folium import st_folium
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Festival-Matcher 🤘", 
+    page_title="Festival Matcher 🤘", 
     page_icon="🤘", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -131,10 +131,7 @@ PAYPAL_ME_URL = "https://paypal.me/Waldsperger"
 # ---------------------------------------------------------------------------
 
 def normalize_band_name(name: str) -> str:
-    """Bereinigt Bandnamen von Phrasen und normalisiert Schreibweisen."""
     clean = name.strip()
-    # Entferne "und weitere...", "u.v.m.", "u.a." etc.
-    clean = re.sub(r'(\,\s*)?(und\s+weitere\b|\.\.\.|\b u\.v\.m\b|\b u\.a\b).*$', '', clean, flags=re.IGNORECASE).strip()
     clean = re.sub(r'\s+', ' ', clean)
     return clean
 
@@ -292,7 +289,7 @@ else:
     st.sidebar.markdown("---")
     st.sidebar.markdown("☕ **Projekt unterstützen**")
     st.sidebar.markdown(
-        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button"> Mein nächstes Festival finanzieren!</a>',
+        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">🍺 Bier / Kaffee spenden</a>',
         unsafe_allow_html=True
     )
 
@@ -488,7 +485,7 @@ with col_f1:
 
 with col_f2:
     st.markdown(
-        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">💳 Mein nächstes Festival finanzieren!</a>',
+        f'<a href="{PAYPAL_ME_URL}" target="_blank" class="paypal-button">💳 Spenden über PayPal</a>',
         unsafe_allow_html=True
     )
 
