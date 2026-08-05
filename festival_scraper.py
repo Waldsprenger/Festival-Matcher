@@ -2,7 +2,6 @@ import re
 import json
 import html as html_lib
 import requests
-from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
@@ -110,17 +109,14 @@ FESTIVAL_URL_MAP = {
 }
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Referer": "https://www.festivalticker.de/"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 }
 
 # ---------------------------------------------------------------------------
-# 2. EXTRAKTION MIT SESSION & BOT-SCHUTZ-UMGEHUNG
+# 2. EXTRAKTIONS-LOGIK (DATUM, PREIS, PLZ, ORT, WEBSEITE, BANDS)
 # ---------------------------------------------------------------------------
 
-def scrape_festival_details(session: requests.Session, festival_name: str, url: str) -> dict:
+def scrape_festival_details(festival_name: str, url: str) -> dict:
     data = {
         "name": festival_name,
         "url_ticker": url,
@@ -135,16 +131,13 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
     }
 
     try:
-        resp = session.get(url, headers=HEADERS, timeout=12)
-        if resp.status_code != 200 or len(resp.text) < 500:
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        if resp.status_code != 200:
             return data
 
         raw_html = html_lib.unescape(resp.text)
-        # Normalisierung
+        # HTML Normalisierung: Ersetzt Umbrüche/Tabs & non-breaking spaces durch reguläre Leerzeichen
         html = re.sub(r'[\xa0\t\r\n]+', ' ', raw_html)
-
-        # BeautifulSoup als zuverlässiger Parser
-        soup = BeautifulSoup(raw_html, "html.parser")
 
         # --- 1. DATUM ---
         m_datum = re.search(r'Vom:\s*([\d\.]+)\s*bis:\s*([\d\.]+)', html, re.IGNORECASE)
@@ -161,25 +154,31 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
             cleaned_preis = re.sub(r'<[^>]+>', '', m_preis.group(1)).strip()
             data["preis"] = cleaned_preis if cleaned_preis else "N/A"
 
-        # --- 3. LOCATION & ORT ---
-        loc_div = soup.find("div", class_="location")
-        if loc_div:
-            for tr in loc_div.find_all("tr"):
-                tds = tr.find_all("td")
-                if len(tds) >= 2:
-                    label = tds[0].get_text(strip=True).replace(":", "").lower()
-                    val = tds[1].get_text(strip=True)
-                    if "location" in label: data["location"] = val
-                    elif "plz" in label: data["plz"] = val
-                    elif "ort" in label: data["ort"] = val
-                    elif "land" in label: data["land"] = val
+        # --- 3. LOCATION, PLZ, ORT, LAND ---
+        m_loc_block = re.search(r'<div\s+class=["\']location["\']>(.*?)</div>', html, re.IGNORECASE)
+        if m_loc_block:
+            loc_html = m_loc_block.group(1)
+            
+            m_loc = re.search(r'<strong>\s*Location:\s*</strong>\s*</td>\s*<td[^>]*>(.*?)</td>', loc_html, re.IGNORECASE)
+            if m_loc: data["location"] = re.sub(r'<[^>]+>', '', m_loc.group(1)).strip()
+            
+            m_plz = re.search(r'<strong>\s*Plz:\s*</strong>\s*</td>\s*<td[^>]*>(.*?)</td>', loc_html, re.IGNORECASE)
+            if m_plz:
+                plz_val = re.sub(r'<[^>]+>', '', m_plz.group(1)).strip()
+                data["plz"] = plz_val if plz_val else "N/A"
+
+            m_ort = re.search(r'<strong>\s*Ort:\s*</strong>\s*</td>\s*<td[^>]*>(.*?)</td>', loc_html, re.IGNORECASE)
+            if m_ort: data["ort"] = re.sub(r'<[^>]+>', '', m_ort.group(1)).strip()
+
+            m_land = re.search(r'<strong>\s*Land:\s*</strong>\s*</td>\s*<td[^>]*>(.*?)</td>', loc_html, re.IGNORECASE)
+            if m_land: data["land"] = re.sub(r'<[^>]+>', '', m_land.group(1)).strip()
 
         # --- 4. OFFIZIELLE WEBSEITE ---
         m_web = re.search(r'<strong>\s*Website:\s*</strong>\s*</td>\s*<td[^>]*>\s*<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.IGNORECASE)
         if m_web:
             data["webseite"] = m_web.group(1).strip()
 
-        # --- 5. BANDS ---
+        # --- 5. BANDS (VARIANTE A & B) ---
         bands_text = ""
         m_bands_same = re.search(r'<strong>\s*Bands:\s*</strong>\s*(?:<br\s*/?>)*(.*?)\s*</td>', html, re.IGNORECASE)
         if m_bands_same and m_bands_same.group(1).strip():
@@ -200,36 +199,28 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
     return data
 
 # ---------------------------------------------------------------------------
-# 3. PIPELINE
+# 3. MULTITHREADING PIPELINE & EXPORT
 # ---------------------------------------------------------------------------
 
-def run_scraper(max_workers: int = 5): # Von 12 auf 5 reduziert gegen Rate-Limiting
+def run_scraper(max_workers: int = 12):
     results = []
-    
-    # Gemeinsame Browser-Session mit Cookies
-    session = requests.Session()
-    # Erster Call auf die Hauptseite, um Cookies zu setzen
-    try:
-        session.get("https://www.festivalticker.de/", headers=HEADERS, timeout=10)
-    except Exception:
-        pass
 
-    print(f"[1/2] Starte Scraper für {len(FESTIVAL_URL_MAP)} Festivals...")
+    print(f"[1/2] Starte Scraper für {len(FESTIVAL_URL_MAP)} zugewiesene Festivals mit {max_workers} Threads...")
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(scrape_festival_details, session, name, url): name 
+            executor.submit(scrape_festival_details, name, url): name 
             for name, url in FESTIVAL_URL_MAP.items()
         }
         
         for future in as_completed(futures):
             res = future.result()
             results.append(res)
-            print(f"✓ {res['name']:<30} | Datum: {res['datum']:<20} | Ort: {res['ort']:<12} | Bands: {len(res['bands'])}")
+            print(f"✓ {res['name']:<30} | Datum: {res['datum']:<23} | PLZ: {res['plz']:<8} | Bands: {len(res['bands'])}")
 
     print(f"\n[2/2] Abgeschlossen. {len(results)} Festivals verarbeitet.")
 
-    # JSON Export
+    # JSON Export (Ideal für Streamlit)
     with open("festivals_data.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
@@ -241,4 +232,4 @@ def run_scraper(max_workers: int = 5): # Von 12 auf 5 reduziert gegen Rate-Limit
     print("-> Daten gespeichert in 'festivals_data.json' & 'festivals_data.csv'")
 
 if __name__ == "__main__":
-    run_scraper(max_workers=5)
+    run_scraper(max_workers=12)
