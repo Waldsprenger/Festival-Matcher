@@ -190,29 +190,29 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
                 bands_text = m_bands_next.group(1)
 
         if bands_text:
+            # HTML-Tags entfernen
             cleaned_text = re.sub(r'<[^>]+>', '', bands_text).strip()
-            
-            # Ungefragte Zusatztexte am Ende entfernen
-            cleaned_text = re.sub(r'(\,\s*)?(und\s+weitere\b|\.\.\.|\b u\.v\.m\b|\b u\.a\b).*$', '', cleaned_text, flags=re.IGNORECASE).strip()
             
             if cleaned_text:
                 raw_bands = [b.strip() for b in cleaned_text.split(",") if b.strip()]
                 
-                # Duplikate entfernen & Schreibweisen normalisieren (Preserve order)
                 unique_bands = []
                 seen_normalized = set()
                 
                 for band in raw_bands:
-                    # Entfernt störende Sonderzeichen, mehrfache Leerzeichen für die Überprüfung
-                    norm = re.sub(r'\s+', ' ', band).strip().lower()
+                    # Störende Anhänge am Ende EINZELNER Bandnamen entfernen (ohne re.DOTALL/$)
+                    clean_b = re.sub(r'(\s*\,?\s*|\s+)(und\s+weitere|u\.v\.m\.|u\.a\.|\.\.\.)\s*$', '', band, flags=re.IGNORECASE).strip()
                     
-                    # Ignoriere rein verbliebenePhrasen
-                    if norm in ["und weitere", "u.v.m.", "u.a.", "..."]:
+                    # Normalisieren für den Duplikatscheck (lowercase, einfache Leerzeichen)
+                    norm = re.sub(r'\s+', ' ', clean_b).lower()
+                    
+                    # Ungültige / verbliebene Rest-Phrasen überspringen
+                    if not clean_b or norm in ["und weitere", "u.v.m.", "u.a.", "...", "und"]:
                         continue
                         
                     if norm not in seen_normalized:
                         seen_normalized.add(norm)
-                        unique_bands.append(band)
+                        unique_bands.append(clean_b)
 
                 data["bands"] = unique_bands
 
