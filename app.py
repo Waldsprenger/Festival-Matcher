@@ -4,6 +4,8 @@ import os
 import re
 from datetime import datetime, date
 import math
+import folium
+from streamlit_folium import st_folium
 
 # ---------------------------------------------------------------------------
 # 1. PAGE CONFIG & METAL-THEME CUSTOM CSS
@@ -16,29 +18,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS für den Metal-Vibe und das Favoriten-Highlighting
+# Custom CSS für Metal-Vibe und Clean UI
 st.markdown("""
 <style>
-    /* Haupt-Hintergrund & Textfarben */
     .stApp {
         background-color: #121212;
         color: #E0E0E0;
     }
     
-    /* Sidebar styling */
     section[data-testid="stSidebar"] {
         background-color: #1A1A1A;
         border-right: 1px solid #333333;
     }
 
-    /* Überschriften */
     h1, h2, h3 {
         color: #D32F2F !important;
         font-family: 'Trebuchet MS', sans-serif;
         text-shadow: 1px 1px 2px #000000;
     }
 
-    /* Badges für Prozentzahlen */
     .badge-high {
         background-color: #2E7D32;
         color: #FFFFFF;
@@ -64,7 +62,6 @@ st.markdown("""
         font-size: 1.1em;
     }
 
-    /* Favoriten Band Badge (Goldener Hintergrund ohne Stern) */
     .fav-band-badge {
         background-color: #FFD700;
         color: #000000;
@@ -76,7 +73,6 @@ st.markdown("""
         border: 1px solid #FFA000;
     }
 
-    /* Normale Band Badge */
     .normal-band-badge {
         background-color: #333333;
         color: #E0E0E0;
@@ -87,7 +83,6 @@ st.markdown("""
         border: 1px solid #555555;
     }
 
-    /* Primary Button Customization */
     div.stButton > button[kind="primary"] {
         background-color: #B71C1C;
         color: white;
@@ -104,18 +99,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# 2. HELFER-FUNKTIONEN: DATA LOADING & BAND-NORMALISIERUNG
+# 2. HELFER-FUNKTIONEN
 # ---------------------------------------------------------------------------
 
 def normalize_band_name(name: str) -> str:
-    """Standardisiert Bandnamen für den Vergleich."""
     clean = name.strip()
     clean = re.sub(r'\s+', ' ', clean)
     return clean
 
 @st.cache_data(ttl=86400)
 def load_festival_data():
-    """Lädt die gecrawlten Festival-Daten und ermittelt das Änderungsdatum."""
     file_path = "festivals_data.json"
     if not os.path.exists(file_path):
         return [], "Noch keine Daten vorhanden (Scraper muss zuerst ausgeführt werden)"
@@ -131,14 +124,12 @@ def load_festival_data():
         return [], f"Fehler beim Laden der Datei: {e}"
 
 def parse_price(preis_str: str) -> float:
-    """Extrahiert den ersten numerischen Preis aus dem Preistext."""
     if not preis_str or preis_str == "N/A":
-        return 9999.0  # Fallback für Sortierung
+        return 9999.0
     match = re.search(r'(\d+[\.,]?\d*)', str(preis_str).replace(',', '.'))
     return float(match.group(1)) if match else 9999.0
 
 def parse_start_date(datum_str: str):
-    """Parses the start date from 'DD.MM.YYYY bis DD.MM.YYYY' or 'DD.MM.YYYY'."""
     if not datum_str or datum_str == "N/A":
         return None
     match = re.search(r'(\d{2}\.\d{2}\.\d{4})', str(datum_str))
@@ -148,10 +139,6 @@ def parse_start_date(datum_str: str):
         except ValueError:
             return None
     return None
-
-# ---------------------------------------------------------------------------
-# 3. GEODATEN-BERECHNUNG (OFFLINE & SCHNELL)
-# ---------------------------------------------------------------------------
 
 PLZ_ZONE_COORDS = {
     "0": (51.05, 13.73), "1": (52.52, 13.40), "2": (53.55, 9.99),
@@ -202,7 +189,7 @@ def calculate_distance(coords1, coords2):
     return round(R * c, 1)
 
 # ---------------------------------------------------------------------------
-# 4. STREAMLIT UI BUILDER
+# 3. STREAMLIT UI BUILDER
 # ---------------------------------------------------------------------------
 
 st.title("🤘 METAL & ROCK FESTIVAL MATCHING")
@@ -213,7 +200,6 @@ festivals, last_update = load_festival_data()
 if not festivals:
     st.warning("⚠️ Keine Festival-Daten gefunden. Bitte führe zuerst den Scraper aus.")
 else:
-    # Band-Liste vorbereiten
     raw_band_map = {}
     for f in festivals:
         for b in f.get("bands", []):
@@ -224,27 +210,64 @@ else:
     sorted_normalized_bands = sorted(raw_band_map.keys(), key=lambda s: s.lower())
     display_bands_map = {norm: raw_band_map[norm] for norm in sorted_normalized_bands}
 
-    # --- SIDEBAR ---
+    # --- SIDEBAR: FILTER ---
     st.sidebar.header("📍 1. Standort & Kriterien")
-    user_plz = st.sidebar.text_input("Deine PLZ (Deutschland/EU):", value="", placeholder="z. B. 68161")
     
-    max_dist_km = st.sidebar.slider("Max. Entfernung (km):", min_value=10, max_value=2000, value=1000, step=20)
-    max_price = st.sidebar.slider("Max. Preis (€):", min_value=0, max_value=600, value=500, step=10)
+    user_plz = st.sidebar.text_input(
+        "Deine PLZ:", 
+        value="", 
+        placeholder="z. B. 68161",
+        help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
+    )
     
+    country_filter = st.sidebar.selectbox(
+        "Länderauswahl:",
+        options=["Alle Länder", "Deutschland", "Österreich", "Schweiz", "Belgien", "Niederlande", "Tschechien", "Frankreich", "Polen", "Spanien", "Großbritannien"],
+        index=0,
+        help="Filtert Ergebnisse gezielt nach dem Austragungsland."
+    )
+
+    max_dist_km = st.sidebar.slider(
+        "Max. Entfernung (km):", 
+        min_value=10, 
+        max_value=2000, 
+        value=800, 
+        step=20,
+        help="Bestimmt den maximalen Umkreis ab deinem Standort."
+    )
+    
+    max_price = st.sidebar.slider(
+        "Max. Preis (€):", 
+        min_value=0, 
+        max_value=600, 
+        value=500, 
+        step=10,
+        help="Filtert Festivals, deren Ticketpreis über diesem Budget liegt."
+    )
+    
+    # DATUMS-SELEKTION: Erlaubt Vergangenheit, zeigt aber bei Bedarf eine Warnung
     today = date.today()
-    start_date_filter = st.sidebar.date_input("Festivals ab Datum:", value=today)
+    start_date_filter = st.sidebar.date_input(
+        "Festivals ab Datum:", 
+        value=today,
+        help="Wähle ein Startdatum. Wenn du ein Datum in der Vergangenheit wählst, werden auch bereits abgelaufene Festivals angezeigt."
+    )
+
+    # WARNHINWEIS FÜR VERGANGENE DATEN
+    if start_date_filter < today:
+        st.sidebar.warning("⚠️ **Hinweis:** Du hast ein Datum in der Vergangenheit gewählt. Es werden auch abgelaufene Festivals angezeigt.")
 
     st.sidebar.header("🎯 2. Band-Gewichtung")
-    st.sidebar.markdown("Bands in deiner Favoriten-Liste zählen **doppelt (2x)** und werden **gold hinterlegt**.")
 
-    # --- HAUPTBEREICH: BANDAUSWAHL ---
+    # --- HAUPTBEREICH: BANDAUSWAHL & MAP ---
     st.subheader("🎵 Wähle deine Bands aus")
     
     selected_norm_bands = st.multiselect(
         "Deine Wunschbands:",
         options=sorted_normalized_bands,
         format_func=lambda x: display_bands_map[x],
-        placeholder="Wähle Bands aus..."
+        placeholder="Wähle Bands aus...",
+        help="Ausgewählte Bands fließen in die Match-Prozentzahl ein."
     )
 
     double_weighted_norm_bands = []
@@ -253,8 +276,30 @@ else:
             "Favoriten (doppelt gewichtet & gold hinterlegt):",
             options=selected_norm_bands,
             format_func=lambda x: display_bands_map[x],
-            placeholder="Wähle deine absoluten Favoriten..."
+            placeholder="Wähle deine absoluten Favoriten...",
+            help="Favoriten geben die doppelte Punkteanzahl im Algorithmus!"
         )
+
+    # --- VISUELLE RADIUS-KARTE ---
+    if user_plz:
+        user_coords = get_coordinates(user_plz, "Deutschland")
+        if user_coords:
+            with st.expander("🗺️ Standort & Entfernungsradius auf der Karte anzeigen", expanded=False):
+                m = folium.Map(location=user_coords, zoom_start=6, tiles="CartoDB dark_matter")
+                folium.Marker(
+                    location=user_coords,
+                    popup="Dein Standort",
+                    icon=folium.Icon(color="red", icon="home")
+                ).add_to(m)
+                folium.Circle(
+                    radius=max_dist_km * 1000,
+                    location=user_coords,
+                    color="#D32F2F",
+                    fill=True,
+                    fill_opacity=0.15,
+                    popup=f"Radius: {max_dist_km} km"
+                ).add_to(m)
+                st_folium(m, width=900, height=350)
 
     # --- MATCHING LOGIK & SORTIERUNG ---
     if st.button("🚀 FESTIVALS AUSWERTEN", type="primary") or selected_norm_bands:
@@ -267,7 +312,13 @@ else:
             results = []
 
             for f in festivals:
-                # 1. Datum Filter
+                # 0. Länder Filter
+                f_land = f.get("land", "")
+                if country_filter != "Alle Länder":
+                    if country_filter.lower() not in f_land.lower():
+                        continue
+
+                # 1. Datum Filter (Filtert je nach eingestelltem Startdatum)
                 f_date = parse_start_date(f.get("datum", ""))
                 if f_date and f_date < start_date_filter:
                     continue
@@ -332,7 +383,6 @@ else:
                     f = item["details"]
                     match_pct = item["match_percentage"]
                     
-                    # Farbliches Badge für Prozentzahl
                     if match_pct >= 75:
                         badge_html = f'<span class="badge-high">{match_pct}% MATCH</span>'
                     elif match_pct >= 50:
@@ -369,14 +419,48 @@ else:
                             with st.popover("📜 Vollständiges Lineup anzeigen"):
                                 st.write(", ".join(f.get("bands", [])))
 
-# --- FOOTER ---
+# ---------------------------------------------------------------------------
+# 4. FOOTER & RECHTLICHE HINWEISE
+# ---------------------------------------------------------------------------
+
 st.markdown("<br><hr>", unsafe_allow_html=True)
-st.markdown(
-    f"<div style='text-align: center; color: #777777; font-size: 0.85em;'>"
-    f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions 🤘<br>"
-    f"<i>Hinweis: Alle Angaben zu Preisen, Terminen und Lineups sind ohne Gewähr. Für die Vollständigkeit und Aktualität "
-    f"der Daten wird keine Haftung übernommen; sie entsprechen dem jeweiligen Stand von <a href='https://www.festivalticker.de/' "
-    f"target='_blank' style='color: #888888;'>Festivalticker.de</a>.</i>"
-    f"</div>",
-    unsafe_allow_html=True
-)
+
+col_f1, col_f2 = st.columns([3, 1])
+
+with col_f1:
+    st.markdown(
+        f"<div style='color: #777777; font-size: 0.85em;'>"
+        f"Festival-Datenbank Stand: <b>{last_update}</b> | Automatisch aktualisiert via GitHub Actions 🤘<br>"
+        f"<i>Hinweis: Alle Angaben zu Preisen, Terminen und Lineups sind ohne Gewähr (Datenquelle: Festivalticker.de). "
+        f"Diese Anwendung steht in keiner Verbindung zu den genannten Festivals oder Veranstaltern.</i>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+with col_f2:
+    with st.popover("⚖️ Impressum & Datenschutz"):
+        st.markdown("### Impressum")
+        st.markdown("""
+        **Diensteanbieter gemäß § 5 DDG:**  
+        [Dein Name / Name deines Projekts]  
+        [Musterstraße 1]  
+        [68161 Mannheim]  
+        **E-Mail:** [deine-email@beispiel.de]  
+        """)
+        
+        st.markdown("---")
+        st.markdown("### Datenschutzerklärung")
+        st.markdown("""
+        Beim Aufruf dieser Anwendung werden durch das Hosting über Streamlit / Snowflake technische Protokolldaten 
+        (z. B. IP-Adresse, Browserversion, Zeitpunkt) verarbeitet.  
+        Diese Anwendung verwendet ausschließlich **technisch notwendige Session-Cookies** (§ 25 Abs. 2 TDDDG). 
+        Es findet kein Tracking oder Analyse durch Dritte statt.
+        """)
+        
+        st.markdown("---")
+        st.markdown("### Nutzungsbedingungen")
+        st.markdown("""
+        1. **Zweck:** Kostenloses Werkzeug zum Abgleich eigener Musikvorlieben mit Festival-Lineups.  
+        2. **Keine Garantie:** Ergebnisse und Verlinkungen stellen keine Kaufberatung oder Garantie dar.  
+        3. **Haftungsausschluss:** Für Richtigkeit, Verfügbarkeit oder Absagen von Festivals wird keine Haftung übernommen.
+        """)
