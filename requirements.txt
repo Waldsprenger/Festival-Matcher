@@ -3,4 +3,5 @@ pandas
 geopy
 requests
 beautifulsoup4
+pypcode
 starlette<0.40.0
