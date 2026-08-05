@@ -2,4 +2,5 @@ streamlit
 pandas
 geopy
 requests
+beautifulsoup4
 starlette<0.40.0
