@@ -181,16 +181,22 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
 
         # --- 5. BANDS ---
         bands_text = ""
-        m_bands_same = re.search(r'<strong>\s*Bands:\s*</strong>\s*(?:<br\s*/?>)*(.*?)\s*</td>', html, re.IGNORECASE)
+        # 1. Versuche Bandliste aus der gleichen Zelle wie die Überschrift auszulesen
+        m_bands_same = re.search(r'<strong>\s*Bands:\s*</strong>\s*(?:<br\s*/?>)*(.*?)\s*</td>', html, re.IGNORECASE | re.DOTALL)
         if m_bands_same and m_bands_same.group(1).strip():
             bands_text = m_bands_same.group(1)
         else:
-            m_bands_next = re.search(r'<strong>\s*Bands:\s*</strong>.*?</tr>\s*<tr>\s*<td[^>]*>(?:<br\s*/?>)*(.*?)(?:<br\s*/?>)*td>', html, re.IGNORECASE)
+            # 2. Versuche Bandliste aus der darauffolgenden Zelle/Zeile zu holen
+            m_bands_next = re.search(r'<strong>\s*Bands:\s*</strong>.*?</tr>\s*<tr>\s*<td[^>]*>(?:<br\s*/?>)*(.*?)</td', html, re.IGNORECASE | re.DOTALL)
             if m_bands_next:
                 bands_text = m_bands_next.group(1)
 
         if bands_text:
-            # HTML-Tags entfernen
+            # Sätze/Texte wie "... und weitere 10 Bands" vor dem HTML-Cleaning gezielt rausschneiden
+            bands_text = re.sub(r'(\.\.\.\s*)?und\s+weitere.*$', '', bands_text, flags=re.IGNORECASE | re.DOTALL)
+            bands_text = re.sub(r'u\.v\.m\.|u\.a\.', '', bands_text, flags=re.IGNORECASE)
+
+            # Alle verbliebenen HTML-Tags entfernen
             cleaned_text = re.sub(r'<[^>]+>', '', bands_text).strip()
             
             if cleaned_text:
@@ -200,14 +206,14 @@ def scrape_festival_details(session: requests.Session, festival_name: str, url: 
                 seen_normalized = set()
                 
                 for band in raw_bands:
-                    # Störende Anhänge am Ende EINZELNER Bandnamen entfernen (ohne re.DOTALL/$)
-                    clean_b = re.sub(r'(\s*\,?\s*|\s+)(und\s+weitere|u\.v\.m\.|u\.a\.|\.\.\.)\s*$', '', band, flags=re.IGNORECASE).strip()
+                    # Einzelne Band-Einträge säubern
+                    clean_b = re.sub(r'^[\.\,\s]+|[\.\,\s]+$', '', band).strip()
                     
-                    # Normalisieren für den Duplikatscheck (lowercase, einfache Leerzeichen)
+                    # Normalisierte Schreibweise für Duplikatsprüfung (Kleinschreibung & einfache Leerzeichen)
                     norm = re.sub(r'\s+', ' ', clean_b).lower()
                     
-                    # Ungültige / verbliebene Rest-Phrasen überspringen
-                    if not clean_b or norm in ["und weitere", "u.v.m.", "u.a.", "...", "und"]:
+                    # Restliche/Sinnlose Phrasen ausfiltern
+                    if not clean_b or norm in ["und weitere", "u.v.m.", "u.a.", "...", "und", "weitere"]:
                         continue
                         
                     if norm not in seen_normalized:
