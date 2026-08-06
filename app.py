@@ -142,7 +142,7 @@ def get_user_coordinates(plz, land="Deutschland"):
 
 
 # ==========================================
-# 3. DATEN LADEN
+# 3. DATEN LADEN & SYNCHRONISATION
 # ==========================================
 processed_data, last_updated_time = load_data()
 
@@ -155,23 +155,29 @@ all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
 
-# Session-State-Initialisierung für Slider & Text-Inputs (für synchrone Enter-Tasten-Bestätigung)
-if "max_dist_val" not in st.session_state:
-    st.session_state.max_dist_val = 300
-if "max_price_val" not in st.session_state:
-    st.session_state.max_price_val = 1000
+# Session-State-Initialisierung für synchrone Zwei-Wege-Bindung
+if "num_max_distance" not in st.session_state:
+    st.session_state.num_max_distance = 300
+if "slider_max_distance" not in st.session_state:
+    st.session_state.slider_max_distance = 300
 
-def sync_dist_input():
-    st.session_state.max_dist_val = st.session_state.num_max_distance
+if "num_max_price" not in st.session_state:
+    st.session_state.num_max_price = 1000
+if "slider_max_price" not in st.session_state:
+    st.session_state.slider_max_price = 1000
 
-def sync_dist_slider():
-    st.session_state.max_dist_val = st.session_state.slider_max_distance
+# Callbacks für Zwei-Wege-Synchronisation
+def sync_dist_from_num():
+    st.session_state.slider_max_distance = st.session_state.num_max_distance
 
-def sync_price_input():
-    st.session_state.max_price_val = st.session_state.num_max_price
+def sync_dist_from_slider():
+    st.session_state.num_max_distance = st.session_state.slider_max_distance
 
-def sync_price_slider():
-    st.session_state.max_price_val = st.session_state.slider_max_price
+def sync_price_from_num():
+    st.session_state.slider_max_price = st.session_state.num_max_price
+
+def sync_price_from_slider():
+    st.session_state.num_max_price = st.session_state.slider_max_price
 
 
 # ==========================================
@@ -186,7 +192,7 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
+# Max. Entfernung (Zwei-Wege-Synchronisation)
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -194,11 +200,10 @@ with col_dist_input:
         "KM Input", 
         min_value=10, 
         max_value=2000, 
-        value=st.session_state.max_dist_val, 
         step=50, 
         label_visibility="collapsed",
         key="num_max_distance",
-        on_change=sync_dist_input,
+        on_change=sync_dist_from_num,
         help="Gib die maximale Entfernung in km ein und drücke ENTER zum Bestätigen."
     )
 with col_dist_slider:
@@ -206,16 +211,15 @@ with col_dist_slider:
         "Entfernung Slider",
         min_value=10,
         max_value=2000,
-        value=st.session_state.max_dist_val,
         step=50,
         label_visibility="collapsed",
         key="slider_max_distance",
-        on_change=sync_dist_slider,
+        on_change=sync_dist_from_slider,
         help="Ziehe den Regler, um den maximalen Radius in km anzupassen."
     )
-max_distance = st.session_state.max_dist_val
+max_distance = st.session_state.slider_max_distance
 
-# Max. Preis (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
+# Max. Preis (Zwei-Wege-Synchronisation)
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -223,11 +227,10 @@ with col_price_input:
         "EUR Input",
         min_value=0,
         max_value=1000,
-        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
         key="num_max_price",
-        on_change=sync_price_input,
+        on_change=sync_price_from_num,
         help="Gib den maximalen Ticketpreis in € ein und drücke ENTER zum Bestätigen."
     )
 with col_price_slider:
@@ -235,14 +238,13 @@ with col_price_slider:
         "Preis Slider",
         min_value=0,
         max_value=1000,
-        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
         key="slider_max_price",
-        on_change=sync_price_slider,
+        on_change=sync_price_from_slider,
         help="Ziehe den Regler, um das maximale Ticketbudget festzulegen."
     )
-max_price = st.session_state.max_price_val
+max_price = st.session_state.slider_max_price
 
 selected_countries = st.sidebar.multiselect(
     "Länder:",
