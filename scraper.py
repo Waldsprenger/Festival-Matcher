@@ -1,3 +1,4 @@
+import html
 import json
 import os
 import re
@@ -94,6 +95,161 @@ COMPILED_GENRE_PATTERNS = {
     for main_cat, keywords in GENRE_MAPPING.items()
 }
 
+# ==========================================
+# HELPER: BANDNAME & LINEUP CLEANING
+# ==========================================
+def clean_band_name(raw_name: str) -> str:
+    """Entfernt Uhrzeiten, Genres in Klammern und störende Zeichen."""
+    name = raw_name.strip()
+    if not name:
+        return ""
+
+    # Entferne Uhrzeiten am Anfang/Ende (z.B. "18:00 Uhr", "19.30 Uhr", "21:15")
+    name = re.sub(r"^\s*\d{1,2}[:.]\d{2}\s*(?:Uhr)?\s*", "", name, flags=re.IGNORECASE)
+    name = re.sub(r"\s*\d{1,2}[:.]\d{2}\s*(?:Uhr)?\s*$", "", name, flags=re.IGNORECASE)
+    name = re.sub(r"^\s*\d{1,2}\s*Uhr\s*", "", name, flags=re.IGNORECASE)
+
+    # Entferne Genre-Klammern am Ende z.B. "(Punk Rock)" oder "(Metal)"
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", name)
+
+    # Entferne evtl. verbliebene führende Aufzählungspunkte / Bindestriche
+    name = re.sub(r"^[\s\-\•\*\–\—]+", "", name)
+    
+    return name.strip()
+
+
+def parse_lineup(soup: BeautifulSoup) -> List[str]:
+    """Extrahiert das Lineup sauber, auch bei Zeilenumbrüchen und ohne Uhrzeiten/Genres."""
+    lineup = []
+    
+    # Suche nach dem Bands-Container auf festivalticker.de
+    bands_td = None
+    for td in soup.find_all(["td", "div"]):
+        text = td.get_text(strip=True)
+        if text.startswith("Bands:") or "Bands:" in text:
+            bands_td = td
+            break
+
+    if bands_td:
+        # Ersetze <br> durch Zeilenumbrüche vor der Text-Extraktion
+        for br in bands_td.find_all("br"):
+            br.replace_with("\n")
+            
+        full_text = bands_td.get_text()
+        # Entferne das Label "Bands:"
+        full_text = re.sub(r"^.*?Bands:\s*", "", full_text, flags=re.IGNORECASE | re.DOTALL)
+
+        # Splitte nach Zeilenumbrüchen und Kommata
+        raw_items = re.split(r"[\n\r;,]+", full_text)
+        for item in raw_items:
+            cleaned = clean_band_name(item)
+            if cleaned and len(cleaned) > 1 and cleaned not in lineup:
+                lineup.append(cleaned)
+    else:
+        # Fallback: Suche nach band-spezifischen Links oder Aufzählungs-Tags
+        for a_tag in soup.select("a[href*='/bands/']"):
+            cleaned = clean_band_name(a_tag.get_text())
+            if cleaned and cleaned not in lineup:
+                lineup.append(cleaned)
+
+    return lineup
+
+
+def check_is_cancelled(soup: BeautifulSoup) -> bool:
+    """
+    Prüft, ob das Festival abgesagt wurde.
+    Bedingung: Durchgestrichener Text UND eine Variation von 'abgesagt' auf der Seite.
+    """
+    page_text = soup.get_text().lower()
+    has_cancelled_word = bool(re.search(r"abgesagt|absage|fällt aus|cancel", page_text))
+    
+    # Prüfe auf durchgestrichene HTML-Elemente
+    has_line_through = bool(
+        soup.find(class_=re.compile(r"line-through", re.I)) or
+        soup.find(["del", "s", "strike"])
+    )
+
+    return has_cancelled_word and has_line_through
+
+
+# ==========================================
+# LEVENSHTEIN & DEDUPLIZIERUNG
+# ==========================================
+def levenshtein_distance(s1: str, s2: str) -> int:
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+def normalize_band_name(name: str) -> str:
+    name_clean = re.sub(r"[^\w\s]", "", name, flags=re.UNICODE)
+    return " ".join(name_clean.lower().split())
+
+
+def deduplicate_festival_lineups(festivals: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    all_bands = [band for f in festivals for band in f.get("lineup", []) if band]
+    
+    normalized_groups = {}
+    for original_name in all_bands:
+        norm = normalize_band_name(original_name)
+        if norm not in normalized_groups:
+            normalized_groups[norm] = []
+        normalized_groups[norm].append(original_name)
+
+    canonical_names = {}
+    for norm, original_list in normalized_groups.items():
+        best_name = max(original_list, key=lambda x: (sum(1 for c in x if c.isupper()), -len(x)))
+        canonical_names[norm] = best_name
+
+    distinct_norms = list(canonical_names.keys())
+    mapping = {}
+
+    for i in range(len(distinct_norms)):
+        norm_i = distinct_norms[i]
+        if norm_i in mapping:
+            continue
+
+        target_norm = norm_i
+        for j in range(i + 1, len(distinct_norms)):
+            norm_j = distinct_norms[j]
+            if norm_j in mapping:
+                continue
+
+            dist = levenshtein_distance(norm_i, norm_j)
+            max_len = max(len(norm_i), len(norm_j))
+
+            if (max_len <= 5 and dist <= 1) or (max_len > 5 and dist <= 2):
+                mapping[norm_j] = canonical_names[target_norm]
+
+        mapping[norm_i] = canonical_names[target_norm]
+
+    final_mapping = {
+        original_name: mapping.get(normalize_band_name(original_name), original_name)
+        for original_name in all_bands
+    }
+
+    for f in festivals:
+        if "lineup" in f and f["lineup"]:
+            new_lineup = []
+            for band in f["lineup"]:
+                canonical = final_mapping.get(band, band)
+                if canonical not in new_lineup:
+                    new_lineup.append(canonical)
+            f["lineup"] = new_lineup
+
+    return festivals
 
 def load_plz_cache() -> Dict[str, Any]:
     """Lädt den PLZ Cache threadsicher aus der Datei."""
