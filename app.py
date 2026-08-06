@@ -117,6 +117,27 @@ def load_data():
         item = f.copy()
         item["preis_num"] = p_val
         item["start_datum"] = s_date
+        # Datum parsen
+        datum_str = f.get("datum", "")
+        s_date = None
+        is_one_day = True # Standardmäßig gehen wir von einem Tag aus
+        
+        if datum_str:
+            match_d = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
+            if match_d:
+                try:
+                    s_date = datetime.strptime(match_d.group(1), "%d.%m.%Y").date()
+                except ValueError:
+                    s_date = None
+            
+            # Wenn ein Bindestrich im Datumstext ist, ist es mehrtägig (z.B. "12.08. - 14.08.")
+            if "-" in datum_str:
+                is_one_day = False
+
+        item = f.copy()
+        item["preis_num"] = p_val
+        item["start_datum"] = s_date
+        item["is_one_day"] = is_one_day # NEU: Boolean-Wert speichern
         processed.append(item)
 
     return processed, last_updated
@@ -231,6 +252,20 @@ min_date = st.sidebar.date_input(
     value=datetime.today().date(),
 )
 
+# NEU: Toggle für Eintagesfestivals
+show_one_day = st.sidebar.toggle(
+    "Eintagesfestivals anzeigen",
+    value=True,
+    help="Deaktiviere diesen Schalter, um nur mehrtägige Festivals anzuzeigen."
+)
+
+selected_genres = st.sidebar.multiselect(
+    "Genres einschränken:",
+    options=all_genres,
+    default=[],
+)
+
+
 selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
@@ -253,6 +288,11 @@ for f in processed_data:
         continue
     if f["start_datum"] and f["start_datum"] < min_date:
         continue
+        
+    # NEU: Herausfiltern, wenn Toggle aus ist und es ein Eintagesfestival ist
+    if not show_one_day and f.get("is_one_day", True):
+        continue
+        
     if selected_genres:
         f_genres = f.get("obergruppen_genre", [])
         if not any(g in f_genres for g in selected_genres):
