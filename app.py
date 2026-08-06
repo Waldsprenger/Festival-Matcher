@@ -4,12 +4,20 @@ import math
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 import folium
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderServiceError
+
+# ==========================================
+# 0. PFAD-KONFIGURATION
+# ==========================================
+BASE_DIR = Path(__file__).parent.resolve()
+JSON_PATH = BASE_DIR / "festivals.json"
 
 # ==========================================
 # 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
@@ -87,14 +95,14 @@ st.markdown(
 # ==========================================
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
-    if not os.path.exists("festivals.json"):
+    if not JSON_PATH.exists():
         return [], "Unbekannt"
 
-    mod_time = os.path.getmtime("festivals.json")
+    mod_time = os.path.getmtime(JSON_PATH)
     last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
 
     try:
-        with open("festivals.json", "r", encoding="utf-8") as f:
+        with open(JSON_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
         return [], last_updated
@@ -143,7 +151,7 @@ def get_user_coordinates(plz, land="Deutschland"):
         location = geolocator.geocode(f"{plz}, {land}", timeout=5)
         if location:
             return location.latitude, location.longitude
-    except Exception:
+    except (GeocoderServiceError, Exception):
         pass
     return None, None
 
@@ -168,8 +176,8 @@ if "max_distance" not in st.session_state:
 if "max_price" not in st.session_state:
     st.session_state.max_price = 500
 
-if "date_picker_value" not in st.session_state:
-    st.session_state.date_picker_value = datetime.now().date()
+if "selected_min_date" not in st.session_state:
+    st.session_state.selected_min_date = datetime.now().date()
 
 
 def sync_dist_input():
@@ -185,7 +193,8 @@ def sync_price_slider():
     st.session_state.max_price = st.session_state.price_slider
 
 def set_date_to_today():
-    st.session_state.date_picker_value = datetime.now().date()
+    st.session_state.selected_min_date = datetime.now().date()
+    st.rerun()
 
 
 # ==========================================
@@ -263,8 +272,8 @@ col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
 with col_date_picker:
     min_date = st.date_input(
         "Festival-Start ab:",
-        value=st.session_state.date_picker_value,
-        key="date_picker_value"
+        value=st.session_state.selected_min_date,
+        key="selected_min_date"
     )
 with col_date_btn:
     st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
@@ -286,14 +295,12 @@ selected_genres = st.sidebar.multiselect(
 # ==========================================
 # 5. ERSTE FILTERUNG DER DATENBASIS
 # ==========================================
-user_lat, user_lon = get_user_coordinates(
-    user_plz,
-    selected_countries[0] if len(selected_countries) == 1 else "Deutschland",
-)
+country_param = selected_countries[0] if selected_countries else "Deutschland"
+user_lat, user_lon = get_user_coordinates(user_plz, country_param)
 
 filtered_festivals = []
 for f in processed_data:
-    if f.get("land") not in selected_countries:
+    if selected_countries and f.get("land") not in selected_countries:
         continue
     if f["preis_num"] > max_price:
         continue
@@ -316,7 +323,7 @@ for f in processed_data:
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
-# Schnelle und performante Extraktion der verfügbaren Bands
+# Extraktion der verfügbaren Bands
 available_bands = sorted(
     list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
 )
