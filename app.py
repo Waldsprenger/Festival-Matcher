@@ -9,7 +9,6 @@ import folium
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
-from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderServiceError
 
@@ -93,6 +92,21 @@ st.markdown(
 # ==========================================
 # 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Schnelle Entfernungsberechnung in km (Haversine-Formel)."""
+    R = 6371.0  # Erdradius in km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
     if not JSON_PATH.exists():
@@ -144,11 +158,11 @@ def load_data():
 
 @st.cache_data(ttl="7d", show_spinner=False)
 def get_user_coordinates(plz, land="Deutschland"):
-    if not plz:
+    if not plz or not plz.strip():
         return None, None
     try:
         geolocator = Nominatim(user_agent="rock_festival_matcher_app_v8")
-        location = geolocator.geocode(f"{plz}, {land}", timeout=5)
+        location = geolocator.geocode(f"{plz.strip()}, {land}", timeout=5)
         if location:
             return location.latitude, location.longitude
     except (GeocoderServiceError, Exception):
@@ -315,7 +329,8 @@ for f in processed_data:
 
     f_lat, f_lon = f.get("lat"), f.get("lon")
     if user_lat is not None and user_lon is not None and f_lat and f_lon:
-        dist = geodesic((user_lat, user_lon), (f_lat, f_lon)).km
+        # Nutzung der ultraschnellen Haversine-Formel
+        dist = haversine_distance(user_lat, user_lon, f_lat, f_lon)
         f["entfernung_km"] = round(dist, 1)
     else:
         f["entfernung_km"] = 99999.0
@@ -483,7 +498,9 @@ else:
 
         with st.expander(f"📋 Vollständiges Lineup für {f['name']} anzeigen ({len(f_bands)} Bands)", expanded=False):
             if f_bands:
-                st.write(", ".join([f"**{b}**" if b.lower() in [sb.lower() for sb in selected_bands] else b for b in f_bands]))
+                # Alphabetische Sortierung des Lineups
+                sorted_lineup = sorted(f_bands, key=lambda x: x.lower())
+                st.write(", ".join([f"**{b}**" if b.lower() in [sb.lower() for sb in selected_bands] else b for b in sorted_lineup]))
             else:
                 st.write("Kein Lineup verfügbar.")
 
