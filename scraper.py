@@ -4,11 +4,14 @@ import os
 import re
 import threading
 import time
+from typing import List, Tuple, Dict, Any, Optional
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 BASE_URL = "https://www.festivalticker.de"
 
@@ -92,18 +95,35 @@ COMPILED_GENRE_PATTERNS = {
 }
 
 
-def load_plz_cache():
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Fehler beim Laden des Cache: {e}")
-            return {}
-    return {}
+def create_requests_session() -> requests.Session:
+    """Erstellt eine robustere Session mit automatischen Retries."""
+    session = requests.Session()
+    retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.headers.update(HEADERS)
+    return session
 
 
-def save_plz_cache(cache):
+SESSION = create_requests_session()
+
+
+def load_plz_cache() -> Dict[str, Any]:
+    """Lädt den PLZ Cache threadsicher aus der Datei."""
+    with cache_lock:
+        if os.path.exists(CACHE_FILE):
+            try:
+                with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Fehler beim Laden des Cache: {e}")
+                return {}
+        return {}
+
+
+def save_plz_cache(cache: Dict[str, Any]) -> None:
+    """Speichert den Cache threadsicher in der Datei."""
     with cache_lock:
         try:
             with open(CACHE_FILE, "w", encoding="utf-8") as f:
@@ -116,7 +136,7 @@ PLZ_CACHE = load_plz_cache()
 geolocator = Nominatim(user_agent="my_festival_scraper_app_v1.0 (waldsprenger@gmail.com)")
 
 
-def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = ""):
+def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = "") -> Tuple[Optional[float], Optional[float]]:
     if not plz and not ort:
         return None, None
 
@@ -180,7 +200,7 @@ def clean_band_name(name: str) -> str:
     return cleaned
 
 
-def map_genres_to_main_categories(subgenres: list[str]) -> list[str]:
+def map_genres_to_main_categories(subgenres: List[str]) -> List[str]:
     matched_main_genres = set()
     for sub in subgenres:
         sub_clean = sub.lower().strip()
@@ -192,13 +212,13 @@ def map_genres_to_main_categories(subgenres: list[str]) -> list[str]:
     return sorted(list(matched_main_genres)) or ["Sonstige / Mixed"]
 
 
-def get_all_festival_links(start_urls: list[str]) -> list[str]:
+def get_all_festival_links(start_urls: List[str]) -> List[str]:
     festival_links = set()
 
     for url in start_urls:
         print(f"[+] Lade Übersichtsseite: {url}")
         try:
-            response = requests.get(url, headers=HEADERS, timeout=15)
+            response = SESSION.get(url, timeout=15)
             response.raise_for_status()
             response.encoding = response.apparent_encoding
         except requests.RequestException as e:
@@ -233,7 +253,7 @@ def is_valid_official_website(url: str) -> bool:
     return True
 
 
-def parse_festival_page(url: str) -> dict:
+def parse_festival_page(url: str) -> Dict[str, Any]:
     data = {
         "name": "",
         "datum": "",
@@ -253,7 +273,7 @@ def parse_festival_page(url: str) -> dict:
     try:
         full_url = urljoin(BASE_URL, url)
         time.sleep(0.1)
-        response = requests.get(full_url, headers=HEADERS, timeout=10)
+        response = SESSION.get(full_url, timeout=10)
         response.raise_for_status()
         response.encoding = response.apparent_encoding
     except Exception as e:
@@ -332,20 +352,17 @@ def parse_festival_page(url: str) -> dict:
                     data["land"] = val
 
     # 6. Webseite
-    # Suche das strong-Tag 'Website:'
     website_label = soup.find(lambda tag: tag.name == "strong" and "Website:" in tag.get_text())
     if website_label:
-        # Finde die umschließende <tr> Zeile
         tr_parent = website_label.find_parent("tr")
         if tr_parent:
-            # Suche alle Links in dieser Zeile
             for a_tag in tr_parent.find_all("a", href=True):
                 href = a_tag["href"].strip()
                 if is_valid_official_website(href):
                     data["webseite"] = href
                     break
 
-    # Fallback: Falls keine Website im HTML-Table gefunden wurde, Schema.org/JSON-LD versuchen
+    # Fallback Schema.org/JSON-LD
     if not data["webseite"]:
         script_ld = soup.find("script", type="application/ld+json")
         if script_ld and script_ld.string:
