@@ -181,18 +181,18 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu berechnen.",
 )
 
-# Max. Entfernung bis 10.000 km
+# Max. Entfernung bis 2.000 km
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
     max_distance_val = st.number_input(
-        "KM", min_value=10, max_value=10000, value=300, step=50, label_visibility="collapsed"
+        "KM", min_value=10, max_value=2000, value=300, step=50, label_visibility="collapsed"
     )
 with col_dist_slider:
     max_distance = st.slider(
         "Entfernung Slider",
         min_value=10,
-        max_value=10000,
+        max_value=2000,
         value=int(max_distance_val),
         step=50,
         label_visibility="collapsed",
@@ -324,11 +324,10 @@ scored_festivals = sorted(
 )
 
 # ==========================================
-# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS)
+# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS BIS 2000 KM)
 # ==========================================
 with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     if user_lat and user_lon:
-        # Karte initial ohne festen Zoom laden
         m = folium.Map(location=[user_lat, user_lon])
 
         # Suchradius einzeichnen
@@ -362,25 +361,18 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
                     icon=folium.Icon(color="black", icon="music"),
                 ).add_to(m)
 
-        # ------------------------------------------------------------------
-        # Bounding Box des Radius berechnen & Karte exakt darauf anpassen
-        # 1 Grad Breitengrad ≈ 111 km
-        # ------------------------------------------------------------------
+        # Auto-Zoom: Exakte Bounding Box für maximal 2000 km berechnen
         lat_delta = max_distance / 111.0
-        # Begrenzung auf max. 85 Grad Nord/Süd, um Folium-Fehler bei 10.000km zu vermeiden
         south = max(-85.0, user_lat - lat_delta)
         north = min(85.0, user_lat + lat_delta)
         west = user_lon - lat_delta
         east = user_lon + lat_delta
 
-        # Zwingt die Karte dazu, die Box (Südwest-Ecke, Nordost-Ecke) voll anzuzeigen
         m.fit_bounds([[south, west], [north, east]])
 
         st_folium(m, width="100%", height=500, key="festival_map")
     else:
-        st.warning(
-            "Konnte Standort für die eingegebene PLZ nicht bestimmen."
-        )
+        st.warning("Konnte Standort für die eingegebene PLZ nicht bestimmen.")
 # ==========================================
 # 9. ERGEBNIS-ANZEIGE
 # ==========================================
