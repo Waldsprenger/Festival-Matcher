@@ -2,9 +2,9 @@ name: Daily Festival Scraper
 
 on:
   schedule:
-    # Täglich um 03:00 Uhr UTC (05:00 Uhr deutscher Sommerzeit)
+    # Führt das Skript jeden Tag um 03:00 Uhr UTC aus
     - cron: '0 3 * * *'
-  # Erlaubt es dir, den Scraper jederzeit manuell über GitHub zu starten
+  # Erlaubt das manuelle Starten über den GitHub-Tab "Actions"
   workflow_dispatch:
 
 jobs:
@@ -12,38 +12,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Repository auschecken
-      - name: Checkout Repository
+      - name: Repository auschecken
         uses: actions/checkout@v4
 
-      # 2. Python-Umgebung einrichten
-      - name: Set up Python
+      - name: Python einrichten
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      # 3. Benötigte Bibliotheken installieren (geopy ergänzt!)
-      - name: Install Dependencies
+      - name: Abhängigkeiten installieren
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 geopy
+          pip install -r requirements.txt
 
-      # 4. Scraper-Skript ausführen (Dateiname auf scraper.py korrigiert)
-      - name: Run Festival Scraper
+      - name: Scraper ausführen
         run: |
           python scraper.py
 
-      # 5. Geänderte festivals.json & plz_cache.json zurück in GitHub committen und pushen
-      - name: Commit and Push Updated Data
+      - name: Aktualisierte Daten committen und pushen
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add festivals.json plz_cache.json
           
-          # Prüfen, ob sich Dateien verändert haben
-          if git diff --staged --quiet; then
-            echo "Keine Änderungen in den Daten gefunden."
-          else
-            git commit -m "auto: Daily update of festivals.json and plz_cache.json"
-            git push
-          fi
+          # Nur committen, wenn sich die Dateien tatsächlich verändert haben
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: automatische Aktualisierung der Festival-Daten" && git push)
