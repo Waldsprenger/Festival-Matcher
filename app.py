@@ -101,6 +101,10 @@ def load_data():
 
     processed = []
     for f in data:
+        # Abgesagte Festivals direkt herausfiltern
+        if f.get("abgesagt", False):
+            continue
+
         preis_str = f.get("preis", "")
         p_val = 0.0
         if preis_str:
@@ -329,18 +333,9 @@ for f in processed_data:
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
-# --- NEU: DUPLETTEN-BEREINIGUNG UND NORMALISIERUNG FÜR BANDS ---
-band_map = {}
-for f in filtered_festivals:
-    for band in f.get("lineup", []):
-        if band:
-            # Normalisierung mit .title() für einheitliche Groß-/Kleinschreibung
-            clean_name = band.strip().title()
-            key = clean_name.lower()
-            if key not in band_map:
-                band_map[key] = clean_name
-
-available_bands = sorted(list(band_map.values()))
+available_bands = sorted(
+    list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
+)
 
 # ==========================================
 # 6. HEADER & BAND-AUSWAHL
@@ -379,12 +374,11 @@ scored_festivals = []
 total_user_weight = sum(band_weights.values())
 
 for f in filtered_festivals:
-    # Erstelle eine Menge aller Bandnamen im Lineup in Kleinschreibung für exakten Match
-    f_bands_lower = set([b.lower() for b in f.get("lineup", []) if b])
+    f_bands = f.get("lineup", [])
 
     if total_user_weight > 0:
         matched_weight = sum(
-            [weight for band, weight in band_weights.items() if band.lower() in f_bands_lower]
+            [weight for band, weight in band_weights.items() if band in f_bands]
         )
         score_pct = round((matched_weight / total_user_weight) * 100, 1)
     else:
@@ -461,10 +455,9 @@ elif not scored_festivals:
     st.info("Keine Festivals mit Übereinstimmungen gefunden. Passe deine Filter oder Band-Auswahl an!")
 else:
     for f in scored_festivals:
-        f_bands_lower = set([b.lower() for b in f.get("lineup", []) if b])
         matching_bands_formatted = []
         for b in selected_bands:
-            if b.lower() in f_bands_lower:
+            if b in f.get("lineup", []):
                 escaped_b = html.escape(b)
                 if band_weights.get(b) == 2.0:
                     matching_bands_formatted.append(f'<span style="color: #FF2A2A; font-weight: bold;">⚡ {escaped_b} (2x)</span>')
