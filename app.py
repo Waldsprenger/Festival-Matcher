@@ -74,7 +74,7 @@ st.markdown(
 
 
 # ==========================================
-# 2. HILFSFUNKTIONEN & CACHING
+# 2. HILFSFUNKTIONEN & GEODATEN-CACHE
 # ==========================================
 @st.cache_data(ttl="1h")
 def load_data():
@@ -89,25 +89,31 @@ def load_data():
   return data, last_updated
 
 
-USER_PLZ_CACHE = {}
-
-
-def get_user_coordinates(plz, land="Deutschland"):
-  if not plz:
+@st.cache_data
+def get_user_coordinates(plz_text, land="Deutschland"):
+  """Sichere Ermittlung der User-Koordinaten mit Fallbacks."""
+  if not plz_text:
     return None, None
-  key = f"{plz}_{land}"
-  if key in USER_PLZ_CACHE:
-    return USER_PLZ_CACHE[key]
 
+  plz_clean = str(plz_text).strip()
+  geolocator = Nominatim(user_agent="rock_festival_matcher_user_v4")
+
+  # Versuche 1: Suche nach "PLZ, Land"
   try:
-    geolocator = Nominatim(user_agent="rock_festival_matcher_user_v3")
-    location = geolocator.geocode(f"{plz}, {land}", timeout=3)
-    if location:
-      res = (location.latitude, location.longitude)
-      USER_PLZ_CACHE[key] = res
-      return res
+    loc = geolocator.geocode(f"{plz_clean}, {land}", timeout=4)
+    if loc:
+      return loc.latitude, loc.longitude
   except Exception:
     pass
+
+  # Versuch 2: Suche nur nach der PLZ
+  try:
+    loc = geolocator.geocode(plz_clean, timeout=4)
+    if loc:
+      return loc.latitude, loc.longitude
+  except Exception:
+    pass
+
   return None, None
 
 
@@ -178,20 +184,18 @@ max_price_in_data = (
 # ==========================================
 st.sidebar.title("🤘 FESTIVAL FILTER")
 
+# Gültige Beispiel-PLZ Mannheim als Standard setzen
 user_plz = st.sidebar.text_input(
     "Deine PLZ:",
-    value="12345",
-    help=(
-        "Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu"
-        " berechnen."
-    ),
+    value="68161",
+    help="Gib deine gültige Postleitzahl ein (z. B. 68161).",
 )
 
 max_distance = st.sidebar.slider(
     "Max. Entfernung (km):",
     min_value=10,
     max_value=1000,
-    value=300,
+    value=500,  # Auf 500km erhöht als robuster Standard
     step=10,
     help="Grenzt die Festival-Suche auf einen maximalen Radius um deine PLZ ein.",
 )
@@ -249,14 +253,20 @@ for f in processed_data:
     if not any(g in f_genres for g in selected_genres):
       continue
 
+  # Koordinaten aus der festivals.json nehmen
   f_lat, f_lon = f.get("lat"), f.get("lon")
+
   if user_lat and user_lon and f_lat and f_lon:
     dist = geodesic((user_lat, user_lon), (f_lat, f_lon)).km
     f["entfernung_km"] = round(dist, 1)
   else:
-    f["entfernung_km"] = 9999.0
+    # Falls der Standort vom User nicht auflösbar war oder das Festival keine Koord. hat
+    f["entfernung_km"] = 0.0 if not (user_lat and user_lon) else 9999.0
 
-  if f["entfernung_km"] <= max_distance:
+  # Nur nach Distanz filtern, wenn User-Koordinaten gefunden wurden
+  if (user_lat and user_lon and f["entfernung_km"] <= max_distance) or not (
+      user_lat and user_lon
+  ):
     filtered_festivals.append(f)
 
 # ==========================================
@@ -301,8 +311,8 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     st_folium(m, width="100%", height=350)
   else:
     st.warning(
-        "Konnte Standort für die eingegebene PLZ nicht bestimmen. Bitte gib"
-        " eine gültige PLZ ein."
+        f"Konnte keinen genauen Standort für die PLZ '{user_plz}' ermitteln."
+        " Zeige alle Festivals ohne Distanzbegrenzung."
     )
 
 # ==========================================
@@ -379,8 +389,8 @@ else:
     ]
     dist_display = (
         f"{f['entfernung_km']} km"
-        if f["entfernung_km"] < 9999.0
-        else "Unbekannt"
+        if f["entfernung_km"] < 9999.0 and f["entfernung_km"] > 0
+        else "N/A"
     )
 
     st.markdown(
