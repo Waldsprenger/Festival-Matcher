@@ -1,9 +1,12 @@
 import html
 import json
+import math
 import os
 import re
+from urllib.parse import quote_plus
 from datetime import datetime
 import folium
+import numpy as np
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
@@ -14,7 +17,7 @@ from geopy.geocoders import Nominatim
 # 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
 # ==========================================
 st.set_page_config(
-    page_title="Festival Matcher | Rock-Edition",
+    page_title="Festival-Matcher",
     page_icon="🎸",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -84,6 +87,14 @@ st.markdown(
 # ==========================================
 # 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
+@st.cache_data
+def load_coords_cache():
+    try:
+        with open("coords_cache.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
     if not os.path.exists("festivals.json"):
@@ -93,7 +104,50 @@ def load_data():
     last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
 
     with open("festivals.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
+            data = json.load(f)
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Festivaldaten: {e}")
+        return pd.DataFrame()
+
+    processed_data = []
+    for f in data:
+        lat = f.get("lat")
+        lon = f.get("lon")
+
+        # Fallback: Falls lat/lon null sind, aus coords_cache.json ermitteln
+        if lat is None or lon is None:
+            plz = str(f.get("plz", "")).strip()
+            land = f.get("land", "Deutschland").strip()
+            ort = f.get("ort", "").strip()
+
+            cache_key = f"{plz}_{land}"
+            if cache_key in coords_cache:
+                lat, lon = coords_cache[cache_key]
+            else:
+                alt_cache_key = f"{plz}_{ort}_{land}"
+                if alt_cache_key in coords_cache:
+                    lat, lon = coords_cache[alt_cache_key]
+
+        item = {
+            "name": f.get("name", "Unbekannt"),
+            "genre": f.get("genre", "Diverse"),
+            "ort": f.get("ort", "Unbekannt"),
+            "plz": f.get("plz", ""),
+            "land": f.get("land", "Deutschland"),
+            "startdatum": f.get("startdatum", ""),
+            "enddatum": f.get("enddatum", ""),
+            "lat": lat,
+            "lon": lon,
+            "webseite": f.get("webseite", "#"),
+            "besucher": f.get("besucher", 0),
+        }
+        processed_data.append(item)
+
+    df = pd.DataFrame(processed_data)
+    if not df.empty:
+        df["startdatum_dt"] = pd.to_datetime(df["startdatum"], errors="coerce")
+        df["enddatum_dt"] = pd.to_datetime(df["enddatum"], errors="coerce")
+    return df
 
     processed = []
     for f in data:
@@ -126,6 +180,20 @@ def load_data():
 
     return processed, last_updated
 
+def haversine_distance(lat1, lon1, lat2, lon2):
+    if any(v is None or math.isnan(v) for v in [lat1, lon1, lat2, lon2]):
+        return 99999.0
+    R = 6371.0  # Erdradius in km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 @st.cache_data(ttl="7d", show_spinner=False)
 def get_user_coordinates(plz, land="Deutschland"):
