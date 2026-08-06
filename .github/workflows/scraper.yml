@@ -2,7 +2,7 @@ name: Daily Festival Scraper
 
 on:
   schedule:
-    # Bsp.: Täglich um 03:00 Uhr UTC (05:00 Uhr deutscher Sommerzeit)
+    # Täglich um 03:00 Uhr UTC (05:00 Uhr deutscher Sommerzeit)
     - cron: '0 3 * * *'
   # Erlaubt es dir, den Scraper jederzeit manuell über GitHub zu starten
   workflow_dispatch:
@@ -22,28 +22,28 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 3. Benötigte Bibliotheken installieren
+      # 3. Benötigte Bibliotheken installieren (geopy ergänzt!)
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4
+          pip install requests beautifulsoup4 geopy
 
-      # 4. Scraper-Skript ausführen
+      # 4. Scraper-Skript ausführen (Dateiname auf scraper.py korrigiert)
       - name: Run Festival Scraper
         run: |
-          python festival_scraper.py
+          python scraper.py
 
-      # 5. Geänderte festivals.json zurück in GitHub committen und pitchen
+      # 5. Geänderte festivals.json & plz_cache.json zurück in GitHub committen und pushen
       - name: Commit and Push Updated Data
         run: |
-          git config --global user.name "GitHub Action Bot"
-          git config --global user.email "actions@github.com"
-          git add festivals.json
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add festivals.json plz_cache.json
           
-          # Prüfen, ob sich die JSON überhaupt verändert hat
+          # Prüfen, ob sich Dateien verändert haben
           if git diff --staged --quiet; then
-            echo "Keine Änderungen in festivals.json gefunden."
+            echo "Keine Änderungen in den Daten gefunden."
           else
-            git commit -m "auto: Daily update of festivals.json"
+            git commit -m "auto: Daily update of festivals.json and plz_cache.json"
             git push
           fi
