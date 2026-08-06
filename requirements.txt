@@ -1,5 +1,8 @@
 streamlit
-pandas
-folium
 streamlit-folium
+folium
+pandas
 geopy
+requests
+beautifulsoup4
+urllib3
