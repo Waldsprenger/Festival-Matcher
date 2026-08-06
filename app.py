@@ -82,9 +82,9 @@ st.markdown(
 
 
 # ==========================================
-# 2. HILFSFUNKTIONEN & CACHING
+# 2. SCHNELLE HILFSFUNKTIONEN & CACHING
 # ==========================================
-@st.cache_data(ttl="1h")
+@st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
     if not os.path.exists("festivals.json"):
         return [], "Unbekannt"
@@ -94,70 +94,60 @@ def load_data():
 
     with open("festivals.json", "r", encoding="utf-8") as f:
         data = json.load(f)
-    return data, last_updated
+
+    # Einmalige Daten-Transformation für maximale Performance
+    processed = []
+    for f in data:
+        # Preis parsen
+        preis_str = f.get("preis", "")
+        p_val = 0.0
+        if preis_str:
+            match = re.search(r"(\d+([.,]\d+)?)", preis_str.replace(".", ""))
+            if match:
+                p_val = float(match.group(1).replace(",", "."))
+
+        # Datum parsen
+        datum_str = f.get("datum", "")
+        s_date = None
+        if datum_str:
+            match_d = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
+            if match_d:
+                try:
+                    s_date = datetime.strptime(match_d.group(1), "%d.%m.%Y").date()
+                except ValueError:
+                    s_date = None
+
+        item = f.copy()
+        item["preis_num"] = p_val
+        item["start_datum"] = s_date
+        processed.append(item)
+
+    return processed, last_updated
 
 
-USER_PLZ_CACHE = {}
-
-
+# Schnelles Geocoding mit Streamlit-Cache (verhindert ständige Re-Requests)
+@st.cache_data(ttl="7d", show_spinner=False)
 def get_user_coordinates(plz, land="Deutschland"):
     if not plz:
         return None, None
-    key = f"{plz}_{land}"
-    if key in USER_PLZ_CACHE:
-        return USER_PLZ_CACHE[key]
-
     try:
-        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v3")
+        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v4")
         location = geolocator.geocode(f"{plz}, {land}", timeout=3)
         if location:
-            res = (location.latitude, location.longitude)
-            USER_PLZ_CACHE[key] = res
-            return res
+            return location.latitude, location.longitude
     except Exception:
         pass
     return None, None
 
 
-def parse_price(preis_str):
-    if not preis_str:
-        return 0.0
-    match = re.search(r"(\d+([.,]\d+)?)", preis_str.replace(".", ""))
-    if match:
-        return float(match.group(1).replace(",", "."))
-    return 0.0
-
-
-def parse_start_date(datum_str):
-    if not datum_str:
-        return None
-    match = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
-    if match:
-        try:
-            return datetime.strptime(match.group(1), "%d.%m.%Y").date()
-        except ValueError:
-            return None
-    return None
-
-
 # ==========================================
-# 3. DATEN LADEN & VORBEREITEN
+# 3. DATEN LADEN
 # ==========================================
-raw_data, last_updated_time = load_data()
+processed_data, last_updated_time = load_data()
 
-if not raw_data:
+if not processed_data:
     st.error("Keine Daten gefunden! Bitte stelle sicher, dass 'festivals.json' im Ordner liegt.")
     st.stop()
-
-processed_data = []
-for f in raw_data:
-    p_val = parse_price(f.get("preis", ""))
-    s_date = parse_start_date(f.get("datum", ""))
-
-    item = f.copy()
-    item["preis_num"] = p_val
-    item["start_datum"] = s_date
-    processed_data.append(item)
 
 all_countries = sorted(list(set([f["land"] for f in processed_data if f.get("land")])))
 all_genres = sorted(
@@ -178,7 +168,7 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu berechnen.",
 )
 
-# Schieberegler + Tastatureingabe für Max. Entfernung
+# Max. Entfernung Eingabe + Slider Synchronisation
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -193,10 +183,9 @@ with col_dist_slider:
         value=int(max_distance_val),
         step=10,
         label_visibility="collapsed",
-        help="Grenzt die Festival-Suche auf einen maximalen Radius um deine PLZ ein.",
     )
 
-# Schieberegler + Tastatureingabe für Max. Preis
+# Max. Preis Eingabe + Slider Synchronisation
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -216,31 +205,27 @@ with col_price_slider:
         value=int(max_price_val),
         step=10,
         label_visibility="collapsed",
-        help="Filtert Festivals bis zu diesem Ticketpreis.",
     )
 
 selected_countries = st.sidebar.multiselect(
     "Länder:",
     options=all_countries,
     default=all_countries,
-    help="Wähle die Länder aus, in denen du ein Festival besuchen möchtest.",
 )
 
 min_date = st.sidebar.date_input(
     "Festival-Start ab:",
     value=datetime.today().date(),
-    help="Es werden nur Festivals angezeigt, die an oder nach diesem Datum starten.",
 )
 
 selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
     default=[],
-    help="Filtert Festivals nach Musikrichtungen und schränkt die auswählbaren Bands ein.",
 )
 
 # ==========================================
-# 5. GEODATEN & GEFILTERTE DATENBASIS
+# 5. ERSTE FILTERUNG DER DATENBASIS
 # ==========================================
 user_lat, user_lon = get_user_coordinates(
     user_plz,
@@ -270,61 +255,22 @@ for f in processed_data:
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
-# ==========================================
-# 6. KARTEN-ANZEIGE (FOLIUM)
-# ==========================================
-st.title("🎸 ROCK YOUR FESTIVAL MATCH")
-
-with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
-    if user_lat and user_lon:
-        m = folium.Map(location=[user_lat, user_lon], zoom_start=6)
-
-        folium.Circle(
-            radius=max_distance * 1000,
-            location=[user_lat, user_lon],
-            color="#FF2A2A",
-            fill=True,
-            fill_color="#FF2A2A",
-            fill_opacity=0.1,
-            popup=f"Suchradius: {max_distance} km",
-        ).add_to(m)
-
-        folium.Marker(
-            [user_lat, user_lon],
-            popup=f"Dein Standort ({user_plz})",
-            icon=folium.Icon(color="red", icon="home"),
-        ).add_to(m)
-
-        for f in filtered_festivals:
-            if f.get("lat") and f.get("lon"):
-                f_name_clean = html.escape(f["name"])
-                f_ort_clean = html.escape(f.get("ort", ""))
-
-                folium.Marker(
-                    [f["lat"], f["lon"]],
-                    popup=f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>{f['entfernung_km']} km",
-                    icon=folium.Icon(color="black", icon="music"),
-                ).add_to(m)
-
-        st_folium(m, width="100%", height=350)
-    else:
-        st.warning(
-            "Konnte Standort für die eingegebene PLZ nicht bestimmen. Bitte gib eine gültige PLZ ein."
-        )
-
-# ==========================================
-# 7. BAND-AUSWAHL & GEWICHTUNG (SCHÖNERES DESIGN)
-# ==========================================
-st.subheader("🎤 Wähle deine Lieblings-Bands")
-
+# Pool an verfügbaren Bands aus allen vorgefilterten Festivals
 available_bands = sorted(
     list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
 )
 
+# ==========================================
+# 6. HEADER & BAND-AUSWAHL
+# ==========================================
+st.title("🎸 ROCK YOUR FESTIVAL MATCH")
+
+st.subheader("🎤 Wähle deine Lieblings-Bands")
+
 selected_bands = st.multiselect(
-    "Suche & wähle Bands (unbegrenzt):",
+    "Suche & wähle Bands:",
     options=available_bands,
-    help="Wähle Bands aus dem verfügbaren Pool aus. Es stehen nur Bands aus den gefilterten Festivals zur Auswahl.",
+    help="Wähle deine Lieblingsbands aus.",
 )
 
 band_weights = {}
@@ -339,7 +285,7 @@ if selected_bands:
             band_weights[band] = 2.0 if double_weight else 1.0
 
 # ==========================================
-# 8. MATCHING-ALGORITHMUS & SORTIERUNG
+# 7. MATCHING-ALGORITHMUS & FINAL FILTERING
 # ==========================================
 scored_festivals = []
 total_user_weight = sum(band_weights.values())
@@ -355,16 +301,61 @@ for f in filtered_festivals:
     else:
         score_pct = 0.0
 
-    # 0% MATCHES HIER HERAUSFILTERN:
+    # Nur Festivals mit Match > 0% berücksichtigen
     if score_pct > 0.0:
         f_copy = f.copy()
         f_copy["match_score"] = score_pct
         scored_festivals.append(f_copy)
 
+# Sortieren nach Match-Score, Entfernung, Preis
 scored_festivals = sorted(
     scored_festivals,
     key=lambda x: (-x["match_score"], x["entfernung_km"], x["preis_num"]),
 )
+
+# ==========================================
+# 8. KARTEN-ANZEIGE (NUR MATCH-ERGEBNISSE!)
+# ==========================================
+with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
+    if user_lat and user_lon:
+        m = folium.Map(location=[user_lat, user_lon], zoom_start=6)
+
+        # Suchradius
+        folium.Circle(
+            radius=max_distance * 1000,
+            location=[user_lat, user_lon],
+            color="#FF2A2A",
+            fill=True,
+            fill_color="#FF2A2A",
+            fill_opacity=0.08,
+            popup=f"Suchradius: {max_distance} km",
+        ).add_to(m)
+
+        # Heimat-Marker
+        folium.Marker(
+            [user_lat, user_lon],
+            popup=f"Dein Standort ({user_plz})",
+            icon=folium.Icon(color="red", icon="home"),
+        ).add_to(m)
+
+        # EXKLUSIV: Nur Marker der gefilterten Match-Ergebnisse anzeigen
+        for f in scored_festivals:
+            if f.get("lat") and f.get("lon"):
+                f_name_clean = html.escape(f["name"])
+                f_ort_clean = html.escape(f.get("ort", ""))
+                score_val = f["match_score"]
+
+                folium.Marker(
+                    [f["lat"], f["lon"]],
+                    popup=f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>Match: {score_val}%<br>{f['entfernung_km']} km",
+                    icon=folium.Icon(color="black", icon="music"),
+                ).add_to(m)
+
+        st_folium(m, width="100%", height=350, key="festival_map")
+    else:
+        st.warning(
+            "Konnte Standort für die eingegebene PLZ nicht bestimmen."
+        )
 
 # ==========================================
 # 9. ERGEBNIS-ANZEIGE
@@ -374,10 +365,9 @@ st.subheader(f"📊 Ergebnis: {len(scored_festivals)} Festivals gefunden")
 if not selected_bands:
     st.info("Wähle oben deine Lieblings-Bands aus, um Matches anzuzeigen.")
 elif not scored_festivals:
-    st.info("Keine Festivals mit Übereinstimmungen (0% Matches werden ausgeblendet). Passe deine Filter oder Band-Auswahl an!")
+    st.info("Keine Festivals mit Übereinstimmungen gefunden. Passe deine Filter oder Band-Auswahl an!")
 else:
     for f in scored_festivals:
-        # Bands formatieren und doppelgewichtete farblich/fett hervorheben
         matching_bands_formatted = []
         for b in selected_bands:
             if b in f.get("lineup", []):
