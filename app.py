@@ -1,229 +1,503 @@
-import datetime
+import html
 import json
-import math
+import os
 import re
-from urllib.parse import quote_plus
+from datetime import datetime
 import folium
-import numpy as np
 import pandas as pd
-from geopy.geocoders import Nominatim
 import streamlit as st
 from streamlit_folium import st_folium
+from geopy.distance import geodesic
+from geopy.geocoders import Nominatim
 
-# Streamlit Konfiguration
+# ==========================================
+# 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
+# ==========================================
 st.set_page_config(
-    page_title="Festival-Finder Deutschland 2026",
-    page_icon="⛺",
+    page_title="Festival Matcher | Rock-Edition",
+    page_icon="🎸",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# Custom CSS für Design und Anabstand
 st.markdown(
     """
     <style>
     .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
+        background-color: #121212;
+        color: #E0E0E0;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #FF2A2A !important;
+        font-family: 'Impact', 'Trebuchet MS', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     .stButton>button {
-        background-color: #ff4b4b;
-        color: white;
-        border-radius: 8px;
+        background-color: #A00000;
+        color: #FFFFFF;
         font-weight: bold;
+        border: 2px solid #FF2A2A;
+        border-radius: 4px;
+        transition: all 0.3s ease;
     }
-    .metric-card {
-        background-color: #1f2937;
+    .stButton>button:hover {
+        background-color: #FF2A2A;
+        color: #000000;
+        border-color: #FFFFFF;
+        box-shadow: 0 0 10px #FF2A2A;
+    }
+    .festival-card {
+        background-color: #1E1E1E;
+        border: 1px solid #333333;
+        border-left: 5px solid #FF2A2A;
         padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #374151;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    .match-score {
+        font-size: 24px;
+        font-weight: bold;
+        color: #00FF66;
+    }
+    .footer-text {
+        font-size: 12px;
+        color: #888888;
+        border-top: 1px solid #333;
+        padding-top: 10px;
+        margin-top: 30px;
+    }
+    .weight-card {
+        background-color: #1A1A1A;
+        border: 1px solid #333;
+        padding: 10px;
+        border-radius: 6px;
         text-align: center;
+        margin-bottom: 10px;
     }
     </style>
-""",
+    """,
     unsafe_allow_html=True,
 )
 
 
-@st.cache_data
-def load_coords_cache():
-    try:
-        with open("coords_cache.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-@st.cache_data
+# ==========================================
+# 2. HILFSFUNKTIONEN & CACHING
+# ==========================================
+@st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
-    coords_cache = load_coords_cache()
-    try:
-        with open("festivals.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as e:
-        st.error(f"Fehler beim Laden der Festivaldaten: {e}")
-        return pd.DataFrame()
+    if not os.path.exists("festivals.json"):
+        return [], "Unbekannt"
 
-    processed_data = []
+    mod_time = os.path.getmtime("festivals.json")
+    last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
+
+    with open("festivals.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    processed = []
     for f in data:
-        lat = f.get("lat")
-        lon = f.get("lon")
+        preis_str = f.get("preis", "")
+        p_val = 0.0
+        if preis_str:
+            match = re.search(r"(\d+([.,]\d+)?)", preis_str.replace(".", ""))
+            if match:
+                p_val = float(match.group(1).replace(",", "."))
 
-        # Fallback: Falls lat/lon null sind, aus coords_cache.json ermitteln
-        if lat is None or lon is None:
-            plz = str(f.get("plz", "")).strip()
-            land = f.get("land", "Deutschland").strip()
-            ort = f.get("ort", "").strip()
+        datum_str = f.get("datum", "")
+        s_date = None
+        is_one_day = True
+        
+        if datum_str:
+            match_d = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
+            if match_d:
+                try:
+                    s_date = datetime.strptime(match_d.group(1), "%d.%m.%Y").date()
+                except ValueError:
+                    s_date = None
+            if "-" in datum_str or " bis " in datum_str.lower():
+                is_one_day = False
 
-            cache_key = f"{plz}_{land}"
-            if cache_key in coords_cache:
-                lat, lon = coords_cache[cache_key]
-            else:
-                alt_cache_key = f"{plz}_{ort}_{land}"
-                if alt_cache_key in coords_cache:
-                    lat, lon = coords_cache[alt_cache_key]
+        item = f.copy()
+        item["preis_num"] = p_val
+        item["start_datum"] = s_date
+        item["is_one_day"] = is_one_day
+        processed.append(item)
 
-        item = {
-            "name": f.get("name", "Unbekannt"),
-            "genre": f.get("genre", "Diverse"),
-            "ort": f.get("ort", "Unbekannt"),
-            "plz": f.get("plz", ""),
-            "land": f.get("land", "Deutschland"),
-            "startdatum": f.get("startdatum", ""),
-            "enddatum": f.get("enddatum", ""),
-            "lat": lat,
-            "lon": lon,
-            "webseite": f.get("webseite", "#"),
-            "besucher": f.get("besucher", 0),
-        }
-        processed_data.append(item)
-
-    df = pd.DataFrame(processed_data)
-    if not df.empty:
-        df["startdatum_dt"] = pd.to_datetime(df["startdatum"], errors="coerce")
-        df["enddatum_dt"] = pd.to_datetime(df["enddatum"], errors="coerce")
-    return df
+    return processed, last_updated
 
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-    if any(v is None or math.isnan(v) for v in [lat1, lon1, lat2, lon2]):
-        return 99999.0
-    R = 6371.0  # Erdradius in km
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
-
-
-# Hauptanwendungslogik
-df = load_data()
-
-st.title("⛺ Festival-Finder 2026")
-st.write(
-    "Finde Musikfestivals in deiner Nähe und erstelle deine Sommerplanung!"
-)
-
-# Sidebar Filter
-st.sidebar.header("Filter-Optionen")
-search_plz = st.sidebar.text_input("Deine PLZ / Ort (für Distanzsuche):", "")
-max_dist = st.sidebar.slider("Maximaler Umkreis (km):", 10, 500, 150)
-
-all_genres = (
-    sorted(list(set(df["genre"].dropna().unique()))) if not df.empty else []
-)
-selected_genres = st.sidebar.multiselect(
-    "Genre-Filter:", all_genres, default=[]
-)
-
-# Geocoding des Heimatorts
-user_lat, user_lon = None, None
-if search_plz:
-    geolocator = Nominatim(user_agent="festival_finder_app_2026")
+@st.cache_data(ttl="7d", show_spinner=False)
+def get_user_coordinates(plz, land="Deutschland"):
+    if not plz:
+        return None, None
     try:
-        location = geolocator.geocode(f"{search_plz}, Germany")
+        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v6")
+        location = geolocator.geocode(f"{plz}, {land}", timeout=3)
         if location:
-            user_lat, user_lon = location.latitude, location.longitude
-            st.sidebar.success(f"Standort gefunden: {location.address}")
-        else:
-            st.sidebar.warning(
-                "PLZ/Ort nicht gefunden. Zeige ungefilterte Distanzen."
-            )
+            return location.latitude, location.longitude
     except Exception:
-        st.sidebar.error("Geocoding-Dienst nicht erreichbar.")
+        pass
+    return None, None
 
-# Distanzberechnung
-if not df.empty:
-    if user_lat and user_lon:
-        df["entfernung_km"] = df.apply(
-            lambda r: round(
-                haversine_distance(user_lat, user_lon, r["lat"], r["lon"]), 1
-            ),
-            axis=1,
-        )
+
+# ==========================================
+# 3. DATEN LADEN & SYNCHRONISATION
+# ==========================================
+processed_data, last_updated_time = load_data()
+
+if not processed_data:
+    st.error("Keine Daten gefunden! Bitte stelle sicher, dass 'festivals.json' im Ordner liegt.")
+    st.stop()
+
+all_countries = sorted(list(set([f["land"] for f in processed_data if f.get("land")])))
+all_genres = sorted(
+    list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
+)
+
+# Session-State-Initialisierung für synchrone Zwei-Wege-Bindung
+if "num_max_distance" not in st.session_state:
+    st.session_state.num_max_distance = 300
+if "slider_max_distance" not in st.session_state:
+    st.session_state.slider_max_distance = 300
+
+if "num_max_price" not in st.session_state:
+    st.session_state.num_max_price = 1000
+if "slider_max_price" not in st.session_state:
+    st.session_state.slider_max_price = 1000
+
+# Callbacks für Zwei-Wege-Synchronisation
+def sync_dist_from_num():
+    st.session_state.slider_max_distance = st.session_state.num_max_distance
+
+def sync_dist_from_slider():
+    st.session_state.num_max_distance = st.session_state.slider_max_distance
+
+def sync_price_from_num():
+    st.session_state.slider_max_price = st.session_state.num_max_price
+
+def sync_price_from_slider():
+    st.session_state.num_max_price = st.session_state.slider_max_price
+
+
+# ==========================================
+# 4. SIDEBAR - FILTER & EINSTELLUNGEN
+# ==========================================
+st.sidebar.title("🤘 FESTIVAL FILTER")
+
+user_plz = st.sidebar.text_input(
+    "Deine PLZ:",
+    value="12345",
+    key="input_user_plz",
+    help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
+)
+
+# Max. Entfernung (Zwei-Wege-Synchronisation)
+st.sidebar.markdown("**Max. Entfernung (km):**")
+col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
+with col_dist_input:
+    st.number_input(
+        "KM Input", 
+        min_value=10, 
+        max_value=2000, 
+        step=50, 
+        label_visibility="collapsed",
+        key="num_max_distance",
+        on_change=sync_dist_from_num,
+        help="Gib die maximale Entfernung in km ein und drücke ENTER zum Bestätigen."
+    )
+with col_dist_slider:
+    st.slider(
+        "Entfernung Slider",
+        min_value=10,
+        max_value=2000,
+        step=50,
+        label_visibility="collapsed",
+        key="slider_max_distance",
+        on_change=sync_dist_from_slider,
+        help="Ziehe den Regler, um den maximalen Radius in km anzupassen."
+    )
+max_distance = st.session_state.slider_max_distance
+
+# Max. Preis (Zwei-Wege-Synchronisation)
+st.sidebar.markdown("**Max. Preis (€):**")
+col_price_input, col_price_slider = st.sidebar.columns([1, 2])
+with col_price_input:
+    st.number_input(
+        "EUR Input",
+        min_value=0,
+        max_value=1000,
+        step=10,
+        label_visibility="collapsed",
+        key="num_max_price",
+        on_change=sync_price_from_num,
+        help="Gib den maximalen Ticketpreis in € ein und drücke ENTER zum Bestätigen."
+    )
+with col_price_slider:
+    st.slider(
+        "Preis Slider",
+        min_value=0,
+        max_value=1000,
+        step=10,
+        label_visibility="collapsed",
+        key="slider_max_price",
+        on_change=sync_price_from_slider,
+        help="Ziehe den Regler, um das maximale Ticketbudget festzulegen."
+    )
+max_price = st.session_state.slider_max_price
+
+selected_countries = st.sidebar.multiselect(
+    "Länder:",
+    options=all_countries,
+    default=all_countries,
+    key="multiselect_countries",
+    help="Wähle die Länder aus, in denen du Festivals suchen möchtest."
+)
+
+min_date = st.sidebar.date_input(
+    "Festival-Start ab:",
+    value=datetime.today().date(),
+    key="date_min_start",
+    help="Filtert Festivals heraus, die vor diesem Datum beginnen."
+)
+
+show_one_day = st.sidebar.toggle(
+    "Eintagesfestivals anzeigen",
+    value=True,
+    key="toggle_one_day_festivals",
+    help="Schalte diesen Schalter aus, um nur mehrtägige Festivals anzuzeigen."
+)
+
+selected_genres = st.sidebar.multiselect(
+    "Genres einschränken:",
+    options=all_genres,
+    default=[],
+    key="multiselect_genres",
+    help="Schränkt die Festivalauswahl und das Band-Angebot auf bestimmte Musikrichtungen ein."
+)
+
+# ==========================================
+# 5. ERSTE FILTERUNG DER DATENBASIS
+# ==========================================
+user_lat, user_lon = get_user_coordinates(
+    user_plz,
+    selected_countries[0] if len(selected_countries) == 1 else "Deutschland",
+)
+
+filtered_festivals = []
+for f in processed_data:
+    if f.get("land") not in selected_countries:
+        continue
+    if f["preis_num"] > max_price:
+        continue
+    if f["start_datum"] and f["start_datum"] < min_date:
+        continue
+    if not show_one_day and f.get("is_one_day", True):
+        continue
+    if selected_genres:
+        f_genres = f.get("obergruppen_genre", [])
+        if not any(g in f_genres for g in selected_genres):
+            continue
+
+    f_lat, f_lon = f.get("lat"), f.get("lon")
+    if user_lat and user_lon and f_lat and f_lon:
+        dist = geodesic((user_lat, user_lon), (f_lat, f_lon)).km
+        f["entfernung_km"] = round(dist, 1)
     else:
-        df["entfernung_km"] = 0.0
+        f["entfernung_km"] = 99999.0
 
-# Daten filtern
-filtered_df = df.copy()
-if selected_genres:
-    filtered_df = filtered_df[filtered_df["genre"].isin(selected_genres)]
-if user_lat and user_lon:
-    filtered_df = filtered_df[filtered_df["entfernung_km"] <= max_dist]
+    if f["entfernung_km"] <= max_distance:
+        filtered_festivals.append(f)
 
-# Sortierung
-filtered_df = filtered_df.sort_values(by="startdatum_dt")
+available_bands = sorted(
+    list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
+)
 
-# Layout Ergebnisse
-col1, col2 = st.columns([2, 1])
+# ==========================================
+# 6. HEADER & BAND-AUSWAHL
+# ==========================================
+st.title("🎸 ROCK YOUR FESTIVAL MATCH")
 
-with col1:
-    st.subheader(f"Gefundene Festivals ({len(filtered_df)})")
-    for _, row in filtered_df.iterrows():
-        with st.expander(f"🎪 {row['name']} ({row['ort']})"):
-            st.write(f"**Datum:** {row['startdatum']} bis {row['enddatum']}")
-            st.write(f"**Genre:** {row['genre']}")
-            if user_lat and user_lon:
-                st.write(f"**Entfernung:** {row['entfernung_km']} km")
-            st.write(f"**Webseite:** [{row['webseite']}]({row['webseite']})")
+st.subheader("🎤 Wähle deine Lieblings-Bands")
 
-with col2:
-    st.subheader("Karte")
-    if not filtered_df.empty:
-        map_center = (
-            [user_lat, user_lon]
-            if user_lat
-            else [
-                filtered_df["lat"].dropna().mean(),
-                filtered_df["lon"].dropna().mean(),
-            ]
+selected_bands = st.multiselect(
+    "Suche & wähle Bands:",
+    options=available_bands,
+    key="multiselect_bands",
+    help="Gib hier Bandnamen ein oder wähle sie aus der Liste der verfügbaren Bands aus."
+)
+
+band_weights = {}
+if selected_bands:
+    st.write("⚡ **Schalte um auf 2x Gewichtung für Prioritäts-Bands:**")
+    cols = st.columns(min(len(selected_bands), 4))
+    for idx, band in enumerate(selected_bands):
+        col = cols[idx % 4]
+        with col:
+            st.markdown(f"<div class='weight-card'><b>{band}</b></div>", unsafe_allow_html=True)
+            double_weight = st.toggle(
+                "2x Gewichtung", 
+                key=f"weight_{band}",
+                help=f"Aktivieren, um '{band}' im Match-Algorithmus doppelt so stark zu gewichten."
+            )
+            band_weights[band] = 2.0 if double_weight else 1.0
+
+# ==========================================
+# 7. MATCHING-ALGORITHMUS & FINAL FILTERING
+# ==========================================
+scored_festivals = []
+total_user_weight = sum(band_weights.values())
+
+for f in filtered_festivals:
+    f_bands = f.get("lineup", [])
+
+    if total_user_weight > 0:
+        matched_weight = sum(
+            [weight for band, weight in band_weights.items() if band in f_bands]
         )
-        m = folium.Map(location=map_center, zoom_start=6)
+        score_pct = round((matched_weight / total_user_weight) * 100, 1)
+    else:
+        score_pct = 0.0
 
-        if user_lat and user_lon:
-            folium.Marker(
-                [user_lat, user_lon],
-                popup="Dein Standort",
-                icon=folium.Icon(color="red", icon="home"),
-            ).add_to(m)
+    if score_pct > 0.0:
+        f_copy = f.copy()
+        f_copy["match_score"] = score_pct
+        scored_festivals.append(f_copy)
 
-        for _, row in filtered_df.iterrows():
-            if pd.notnull(row["lat"]) and pd.notnull(row["lon"]):
+scored_festivals = sorted(
+    scored_festivals,
+    key=lambda x: (-x["match_score"], x["entfernung_km"], x["preis_num"]),
+)
+
+# ==========================================
+# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS)
+# ==========================================
+with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
+    if user_lat and user_lon:
+        m = folium.Map(location=[user_lat, user_lon])
+
+        # Suchradius einzeichnen
+        folium.Circle(
+            radius=max_distance * 1000,
+            location=[user_lat, user_lon],
+            color="#FF2A2A",
+            fill=True,
+            fill_color="#FF2A2A",
+            fill_opacity=0.08,
+            popup=f"Suchradius: {max_distance} km",
+        ).add_to(m)
+
+        # Heimat-Marker
+        folium.Marker(
+            [user_lat, user_lon],
+            popup=f"Dein Standort ({user_plz})",
+            icon=folium.Icon(color="red", icon="home"),
+        ).add_to(m)
+
+        # Marker der gefilterten Match-Ergebnisse anzeigen
+        for f in scored_festivals:
+            if f.get("lat") and f.get("lon"):
+                f_name_clean = html.escape(f["name"])
+                f_ort_clean = html.escape(f.get("ort", ""))
+                score_val = f["match_score"]
+
                 folium.Marker(
-                    [row["lat"], row["lon"]],
-                    popup=f"{row['name']} ({row['ort']})",
-                    tooltip=row["name"],
+                    [f["lat"], f["lon"]],
+                    popup=f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>Match: {score_val}%<br>{f['entfernung_km']} km",
+                    icon=folium.Icon(color="black", icon="music"),
                 ).add_to(m)
 
-        st_folium(m, width=400, height=500)
+        # Auto-Zoom: Exakte Bounding Box berechnen
+        lat_delta = max_distance / 111.0
+        south = max(-85.0, user_lat - lat_delta)
+        north = min(85.0, user_lat + lat_delta)
+        west = user_lon - lat_delta
+        east = user_lon + lat_delta
 
-# Impressum
+        m.fit_bounds([[south, west], [north, east]])
+
+        st_folium(m, width="100%", height=500, key="festival_map")
+    else:
+        st.warning("Konnte Standort für die eingegebene PLZ nicht bestimmen.")
+
+# ==========================================
+# 9. ERGEBNIS-ANZEIGE
+# ==========================================
+st.subheader(f"📊 Ergebnis: {len(scored_festivals)} Festivals gefunden")
+
+if not selected_bands:
+    st.info("Wähle oben deine Lieblings-Bands aus, um Matches anzuzeigen.")
+elif not scored_festivals:
+    st.info("Keine Festivals mit Übereinstimmungen gefunden. Passe deine Filter oder Band-Auswahl an!")
+else:
+    for f in scored_festivals:
+        matching_bands_formatted = []
+        for b in selected_bands:
+            if b in f.get("lineup", []):
+                if band_weights.get(b) == 2.0:
+                    matching_bands_formatted.append(f'<span style="color: #FF2A2A; font-weight: bold;">⚡ {b} (2x)</span>')
+                else:
+                    matching_bands_formatted.append(b)
+
+        dist_display = (
+            f"{f['entfernung_km']} km"
+            if f["entfernung_km"] < 99999.0
+            else "Unbekannt"
+        )
+
+        st.markdown(
+            f"""
+            <div class="festival-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>{f['name']}</h2>
+                    <div class="match-score">{f['match_score']}% Match</div>
+                </div>
+                <p><strong>📅 Datum:</strong> {f.get('datum', 'k.A.')} | 
+                   <strong>💰 Preis:</strong> {f.get('preis', 'k.A.')} | 
+                   <strong>📍 Ort:</strong> {f.get('ort', 'k.A.')} ({f.get('land', '')}) | 
+                   <strong>🚗 Entfernung:</strong> {dist_display}</p>
+                <p><strong>🌐 Webseite:</strong> <a href="{f.get('webseite', '#')}" target="_blank" style="color: #FF2A2A;">{f.get('webseite', 'Keine Seite')}</a></p>
+                <p><strong>🎸 Match-Bands:</strong> {', '.join(matching_bands_formatted)}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+# ==========================================
+# 10. RECHTLICHE HINWEISE & IMPRESSUM
+# ==========================================
 st.markdown("---")
-with st.expander("Impressum"):
-    st.write("Angaben gemäß § 5 TMG")
-    st.write("Arne Waldsperger")
-    st.write("E-Mail: waldsprenger@gmail.com")
+
+st.markdown(
+    f"""
+    <div class="footer-text">
+        <p><strong>Datenaktualität & Haftungsausschluss:</strong><br>
+        Letzte Aktualisierung der Festivaldaten: <u>{last_updated_time}</u>.<br>
+        Es besteht keinerlei Gewährleistung für die Korrektheit, Vollständigkeit oder Aktualität der Daten.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.expander("⚖️ Impressum & Rechtliche Hinweise"):
+    st.markdown(
+        """
+    ### Impressum
+    **Angaben gemäß § 5 DDG:**  
+    Arne Waldsperger  
+    N7 2a  
+    68161 Mannheim  
+
+    **Kontakt:**  
+    E-Mail: waldsprenger@gmail.com  
+
+    ---
+    ### Haftungsausschluss (Disclaimer)
+
+    **Haftung für Inhalte**  
+    Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich.
+
+    **Haftung für Links**  
+    Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben.
+    """
+    )
