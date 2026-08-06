@@ -254,18 +254,28 @@ selected_countries = st.sidebar.multiselect(
     help="Wähle die Länder aus, in denen du Festivals suchen möchtest."
 )
 
+# Hilfsfunktion (Callback) zum Zurücksetzen des Datums
+def set_date_to_today():
+    st.session_state.date_min_start = datetime.today().date()
+
 # Datumsfilter mit "Heute"-Button Option
 col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
+
 with col_date_picker:
     min_date = st.date_input(
         "Festival-Start ab:",
-        value=st.session_state.date_min_start,
+        value=st.session_state.get("date_min_start", datetime.today().date()),
         key="date_min_start",
         help="Filtert Festivals heraus, die vor diesem Datum beginnen."
     )
+
 with col_date_btn:
     st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-    if st.button("📅 Heute", help="Setzt das Datum auf den heutigen Tag zurück."):
+    st.button(
+        "📅 Heute", 
+        on_click=set_date_to_today, 
+        help="Setzt das Datum auf den heutigen Tag zurück."
+    ):
         st.session_state.date_min_start = datetime.today().date()
         st.rerun()
 
