@@ -1,24 +1,24 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import re
 import threading
 import time
-from typing import List, Tuple, Dict, Any, Optional
-from urllib.parse import urljoin, urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urljoin
+
 from bs4 import BeautifulSoup
-from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
+from geopy.geocoders import Nominatim
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 BASE_URL = "https://www.festivalticker.de"
 
-# Liste aller Startseiten, die gescrapt werden sollen
 START_URLS = [
     "https://www.festivalticker.de/alle-festivals/",
-    "https://www.festivalticker.de/festivals-2027/"
+    "https://www.festivalticker.de/festivals-2027/",
 ]
 
 HEADERS = {
@@ -30,10 +30,12 @@ HEADERS = {
 
 MAX_WORKERS = 5
 CACHE_FILE = "plz_cache.json"
-cache_lock = threading.Lock()
-geo_lock = threading.Lock()  # Sperre für Nominatim Rate-Limiting
 
-# Blacklist von Domains/Begriffen, die KEINE offiziellen Festivalwebseiten sind
+# Synchronization Primitives
+cache_lock = threading.Lock()
+geo_lock = threading.Lock()
+thread_local = threading.local()
+
 WEBSITE_BLACKLIST = [
     "festivalticker.de",
     "facebook.com",
@@ -52,7 +54,6 @@ WEBSITE_BLACKLIST = [
     "wikipedia.org",
 ]
 
-# Vollständige Genre-Liste
 GENRE_MAPPING = {
     "Metal": [
         "metal", "heavy metal", "death metal", "black metal", "thrash metal",
@@ -85,7 +86,6 @@ GENRE_MAPPING = {
     "Jazz & Blues": ["jazz", "blues", "funk", "soul"],
 }
 
-# Pre-compile Genre-Regexes für optimale Performance
 COMPILED_GENRE_PATTERNS = {
     main_cat: [
         re.compile(r"(?:^|[^a-zA-Z0-9])" + re.escape(kw) + r"(?:$|[^a-zA-Z0-9])", re.IGNORECASE)
@@ -93,20 +93,6 @@ COMPILED_GENRE_PATTERNS = {
     ]
     for main_cat, keywords in GENRE_MAPPING.items()
 }
-
-
-def create_requests_session() -> requests.Session:
-    """Erstellt eine robustere Session mit automatischen Retries."""
-    session = requests.Session()
-    retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-    adapter = HTTPAdapter(max_retries=retries)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    session.headers.update(HEADERS)
-    return session
-
-
-SESSION = create_requests_session()
 
 
 def load_plz_cache() -> Dict[str, Any]:
@@ -122,18 +108,32 @@ def load_plz_cache() -> Dict[str, Any]:
         return {}
 
 
-def save_plz_cache(cache: Dict[str, Any]) -> None:
-    """Speichert den Cache threadsicher in der Datei."""
+def save_plz_cache() -> None:
+    """Speichert den globalen Cache threadsicher ab."""
     with cache_lock:
         try:
             with open(CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump(cache, f, ensure_ascii=False, indent=2)
+                json.dump(PLZ_CACHE, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Fehler beim Speichern des Cache: {e}")
 
 
-PLZ_CACHE = load_plz_cache()
+# Cache und Geolocator nach Funktionsdefinitionen initialisieren
+PLZ_CACHE: Dict[str, Any] = load_plz_cache()
 geolocator = Nominatim(user_agent="my_festival_scraper_app_v1.0 (waldsprenger@gmail.com)")
+
+
+def get_thread_session() -> requests.Session:
+    """Erstellt eine thread-spezifische Session zur sicheren Wiederverwendung."""
+    if not hasattr(thread_local, "session"):
+        session = requests.Session()
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        session.headers.update(HEADERS)
+        thread_local.session = session
+    return thread_local.session
 
 
 def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = "") -> Tuple[Optional[float], Optional[float]]:
@@ -149,24 +149,27 @@ def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = "") -> 
 
     cache_key = f"{plz_str}_{ort_str}_{land_str}"
 
+    # Cache Prüfung vor Lock-Erwerb
     with cache_lock:
         if cache_key in PLZ_CACHE:
             c = PLZ_CACHE[cache_key]
             return c.get("lat"), c.get("lon")
 
+    # Geocoding synchronisieren & Rate Limit einhalten
     with geo_lock:
+        # Re-Check im Lock
         with cache_lock:
             if cache_key in PLZ_CACHE:
                 c = PLZ_CACHE[cache_key]
                 return c.get("lat"), c.get("lon")
 
-        time.sleep(1.5)
+        time.sleep(1.2)  # Nominatim Rate-Limit
         try:
             query = f"{plz_str} {ort_str}, {land_str}".strip()
             location = geolocator.geocode(query, timeout=10)
 
             if not location and ort_str:
-                time.sleep(1.5)
+                time.sleep(1.2)
                 location = geolocator.geocode(f"{ort_str}, {land_str}", timeout=10)
 
             lat, lon = (location.latitude, location.longitude) if location else (None, None)
@@ -176,8 +179,8 @@ def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = "") -> 
 
             return lat, lon
 
-        except (GeocoderTimedOut, GeocoderServiceError, requests.RequestException) as e:
-            print(f"Temporärer Netz-/Geocoding-Fehler für {cache_key}: {e}. Nicht gecacht.")
+        except (GeocoderTimedOut, GeocoderServiceError) as e:
+            print(f"Temporärer Geocoding-Fehler für {cache_key}: {e}. Nicht gecacht.")
             return None, None
         except Exception as e:
             print(f"Unerwarteter Geocoding Fehler für {cache_key}: {e}")
@@ -193,8 +196,20 @@ def clean_text(text: str) -> str:
 def clean_band_name(name: str) -> str:
     if not name:
         return ""
+    
+    # 1. Vorangestellte Uhrzeiten und Zeitspannen entfernen (z.B. "18:30 Uhr Band", "14:00 - 15:30 Band", "14.00-15.30 Band")
+    cleaned = re.sub(r"^\s*(\d{1,2}[:.]\d{2}\s*(Uhr)?\s*(-|bis)?\s*(\d{1,2}[:.]\d{2}\s*(Uhr)?)?|\d{1,2}\s*Uhr)\s*[-:]?\s*", "", name, flags=re.IGNORECASE).strip()
+
+    # 2. Nachgestellte Uhrzeiten / Klammern mit Zeitangaben entfernen (z.B. "Band (18:30 Uhr)", "Band 18:30")
+    cleaned = re.sub(r"\s*[\(\[\{]?\s*\d{1,2}[:.]\d{2}\s*(Uhr)?\s*[\)\]\}]?\s*$", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # 3. Genres in Klammern entfernen (z.B. "Bandname (Genre)")
+    cleaned = re.sub(r"\s*[\(\[\{].*?[\)\]\}]", "", cleaned).strip()
+    
+    # 4. Floskeln wie "und weitere" entfernen
     pattern = r"\s*[\, \-]*\b(und\s+weitere|und\s+viele\s+mehr|u\.a\.|u\.v\.m\.|und\s+viele\s+weitere)\b.*$"
-    cleaned = re.sub(pattern, "", name, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE).strip()
+    
     if cleaned.lower() in ["und weitere", "und viele mehr", "u.a.", "u.v.m.", "und viele weitere"]:
         return ""
     return cleaned
@@ -214,11 +229,12 @@ def map_genres_to_main_categories(subgenres: List[str]) -> List[str]:
 
 def get_all_festival_links(start_urls: List[str]) -> List[str]:
     festival_links = set()
+    session = get_thread_session()
 
     for url in start_urls:
         print(f"[+] Lade Übersichtsseite: {url}")
         try:
-            response = SESSION.get(url, timeout=15)
+            response = session.get(url, timeout=15)
             response.raise_for_status()
             response.encoding = response.apparent_encoding
         except requests.RequestException as e:
@@ -243,13 +259,12 @@ def is_valid_official_website(url: str) -> bool:
     """Prüft, ob eine URL die tatsächliche offizielle Website ist."""
     if not url or not url.startswith("http"):
         return False
-    
+
     url_lower = url.lower()
-    
     for bad_domain in WEBSITE_BLACKLIST:
         if bad_domain in url_lower:
             return False
-            
+
     return True
 
 
@@ -268,12 +283,15 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
         "lineup": [],
         "lat": None,
         "lon": None,
+        "abgesagt": False,
     }
+
+    session = get_thread_session()
 
     try:
         full_url = urljoin(BASE_URL, url)
         time.sleep(0.1)
-        response = SESSION.get(full_url, timeout=10)
+        response = session.get(full_url, timeout=10)
         response.raise_for_status()
         response.encoding = response.apparent_encoding
     except Exception as e:
@@ -281,6 +299,10 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
         return data
 
     soup = BeautifulSoup(response.text, "html.parser")
+
+    # Prüfe auf Absage (durchgestrichener Haupttext, <strike> oder <del> Tag)
+    if soup.find(["strike", "del"]):
+        data["abgesagt"] = True
 
     # 1. Festival Name
     h2 = soup.find("h2")
@@ -352,7 +374,7 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
                     data["land"] = val
 
     # 6. Webseite
-    website_label = soup.find(lambda tag: tag.name == "strong" and "Website:" in tag.get_text())
+    website_label = soup.find(lambda tag: getattr(tag, "name", None) == "strong" and "Website:" in tag.get_text())
     if website_label:
         tr_parent = website_label.find_parent("tr")
         if tr_parent:
@@ -375,30 +397,43 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
                 pass
 
     # 7. Lineup / Bands
-    bands_strong = soup.find(lambda tag: tag.name == "strong" and "Bands:" in tag.get_text())
+    bands_strong = soup.find(lambda tag: getattr(tag, "name", None) == "strong" and "Bands:" in tag.get_text())
     if bands_strong:
         parent_td = bands_strong.find_parent("td")
-        raw_bands = ""
+        
+        target_container = None
+        if parent_td:
+            parent_tr = parent_td.find_parent("tr")
+            next_tr = parent_tr.find_next_sibling("tr") if parent_tr else None
 
-        parent_tr = parent_td.find_parent("tr") if parent_td else None
-        next_tr = parent_tr.find_next_sibling("tr") if parent_tr else None
+            if next_tr and next_tr.get_text().strip():
+                target_container = next_tr
+            else:
+                target_container = parent_td
 
-        if next_tr and next_tr.get_text().strip():
-            raw_bands = clean_text(next_tr.get_text())
-        elif parent_td:
-            raw_bands = clean_text(parent_td.get_text()).replace("Bands:", "")
+        if target_container:
+            # Unterelemente extrahieren und Zeilenumbrüche/Tags durch Kommata ersetzen
+            parts = []
+            for elem in target_container.descendants:
+                if isinstance(elem, str):
+                    t = elem.strip()
+                    if t and not t.startswith("Bands:"):
+                        parts.append(t)
+                elif elem.name in ["br", "p", "div", "li", "tr"]:
+                    parts.append(",")
 
-        if "zum kompletten Programm" in raw_bands:
-            raw_bands = raw_bands.split("zum kompletten Programm")[0]
+            raw_bands = " ".join(parts)
+            # Mehrfache Kommata und Leerzeichen bereinigen
+            raw_bands = re.sub(r"\s*,\s*", ", ", raw_bands)
+            raw_bands = clean_text(raw_bands)
 
-        if "," in raw_bands:
+            if "zum kompletten Programm" in raw_bands:
+                raw_bands = raw_bands.split("zum kompletten Programm")[0]
+
+            # Bands parsen
             raw_list = [b.strip() for b in raw_bands.split(",") if b.strip()]
             cleaned_list = [clean_band_name(b) for b in raw_list]
             data["lineup"] = [b for b in cleaned_list if b]
-        elif raw_bands.strip():
-            single_band = clean_band_name(raw_bands.strip())
-            if single_band:
-                data["lineup"] = [single_band]
 
     # Geocoding
     lat, lon = get_coordinates_safe(data.get("plz"), data.get("land", "Deutschland"), data.get("ort"))
@@ -427,18 +462,21 @@ def main():
 
             for future in as_completed(future_to_url):
                 completed_count += 1
-                data = future.result()
-                if data["name"]:
-                    results.append(data)
-                print(f"[{completed_count}/{total_links}] Gescrapt: {data['name'] or 'Unbekannt'}")
+                try:
+                    data = future.result()
+                    if data["name"]:
+                        results.append(data)
+                    print(f"[{completed_count}/{total_links}] Gescrapt: {data['name'] or 'Unbekannt'}")
+                except Exception as exc:
+                    print(f"[{completed_count}/{total_links}] Fehler bei der Verarbeitung: {exc}")
 
                 if completed_count % 10 == 0:
-                    save_plz_cache(PLZ_CACHE)
+                    save_plz_cache()
 
     except KeyboardInterrupt:
         print("\n[!] Abbruch durch Benutzer. Sichere bisherige Daten...")
     finally:
-        save_plz_cache(PLZ_CACHE)
+        save_plz_cache()
         output_filename = "festivals.json"
         with open(output_filename, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
