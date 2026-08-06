@@ -4,6 +4,7 @@ import math
 import os
 import re
 from datetime import datetime
+from difflib import SequenceMatcher
 import folium
 import pandas as pd
 import streamlit as st
@@ -54,7 +55,7 @@ st.markdown(
         border-left: 5px solid #FF2A2A;
         padding: 15px;
         border-radius: 5px;
-        margin-bottom: 15px;
+        margin-bottom: 5px;
     }
     .match-score {
         font-size: 24px;
@@ -85,6 +86,33 @@ st.markdown(
 # ==========================================
 # 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
+def deduplicate_global_bands(bands: list) -> list:
+    """Bereinigt doppelte und minimal abweichende Bandnamen für das Dropdown."""
+    unique_map = {}
+    for b in bands:
+        if not b:
+            continue
+        key = b.lower().strip()
+        matched_key = None
+        
+        for k in unique_map.keys():
+            if key == k:
+                matched_key = k
+                break
+            if abs(len(key) - len(k)) <= 2 and min(len(key), len(k)) > 4:
+                if SequenceMatcher(None, key, k).ratio() >= 0.90:
+                    matched_key = k
+                    break
+
+        if matched_key:
+            if sum(1 for c in b if c.isupper()) > sum(1 for c in unique_map[matched_key] if c.isupper()):
+                unique_map[matched_key] = b
+        else:
+            unique_map[key] = b
+
+    return sorted(list(unique_map.values()))
+
+
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
     if not os.path.exists("festivals.json"):
@@ -158,7 +186,6 @@ if not processed_data:
     st.error("Keine Daten gefunden! Bitte stelle sicher, dass eine gültige 'festivals.json' im Ordner liegt.")
     st.stop()
 
-# Fehlerbehebung: Sicherstellen, dass None-Werte beim Sortieren herausgefiltert werden
 all_countries = sorted(list(set([f.get("land") for f in processed_data if f.get("land") is not None])))
 all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
@@ -202,7 +229,6 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung Synchronisation
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -231,7 +257,6 @@ with col_dist_slider:
     )
 max_distance = st.session_state.max_distance
 
-# Max. Preis Synchronisation
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -313,7 +338,6 @@ for f in processed_data:
         continue
     if f["preis_num"] > max_price:
         continue
-    # Fehlerbehebung: Abfangen von None-Werten bei start_datum
     if f["start_datum"] and min_date and f["start_datum"] < min_date:
         continue
     if not show_one_day and f.get("is_one_day", True):
@@ -333,9 +357,8 @@ for f in processed_data:
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
-available_bands = sorted(
-    list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
-)
+raw_available_bands = [band for f in filtered_festivals for band in f.get("lineup", []) if band]
+available_bands = deduplicate_global_bands(raw_available_bands)
 
 # ==========================================
 # 6. HEADER & BAND-AUSWAHL
@@ -375,10 +398,11 @@ total_user_weight = sum(band_weights.values())
 
 for f in filtered_festivals:
     f_bands = f.get("lineup", [])
+    f_bands_lower = [b.lower() for b in f_bands]
 
     if total_user_weight > 0:
         matched_weight = sum(
-            [weight for band, weight in band_weights.items() if band in f_bands]
+            [weight for band, weight in band_weights.items() if band.lower() in f_bands_lower]
         )
         score_pct = round((matched_weight / total_user_weight) * 100, 1)
     else:
@@ -395,7 +419,7 @@ scored_festivals = sorted(
 )
 
 # ==========================================
-# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS)
+# 8. KARTEN-ANZEIGE
 # ==========================================
 with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     if user_lat is not None and user_lon is not None:
@@ -445,7 +469,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
         st.warning("Konnte Standort für die eingegebene PLZ nicht bestimmen.")
 
 # ==========================================
-# 9. ERGEBNIS-ANZEIGE
+# 9. ERGEBNIS-ANZEIGE MIT AUFKLAPPBAREM LINEUP
 # ==========================================
 st.subheader(f"📊 Ergebnis: {len(scored_festivals)} Festivals gefunden")
 
@@ -454,10 +478,13 @@ if not selected_bands:
 elif not scored_festivals:
     st.info("Keine Festivals mit Übereinstimmungen gefunden. Passe deine Filter oder Band-Auswahl an!")
 else:
-    for f in scored_festivals:
+    for idx, f in enumerate(scored_festivals):
+        f_bands = f.get("lineup", [])
+        f_bands_lower = [b.lower() for b in f_bands]
+
         matching_bands_formatted = []
         for b in selected_bands:
-            if b in f.get("lineup", []):
+            if b.lower() in f_bands_lower:
                 escaped_b = html.escape(b)
                 if band_weights.get(b) == 2.0:
                     matching_bands_formatted.append(f'<span style="color: #FF2A2A; font-weight: bold;">⚡ {escaped_b} (2x)</span>')
@@ -487,6 +514,13 @@ else:
             """,
             unsafe_allow_html=True,
         )
+
+        # Aufklappbares Feld für das gesamte Lineup des Festivals
+        with st.expander(f"📋 Vollständiges Lineup für {f['name']} anzeigen ({len(f_bands)} Bands)", expanded=False):
+            if f_bands:
+                st.write(", ".join([f"**{b}**" if b in selected_bands else b for b in f_bands]))
+            else:
+                st.write("Kein Lineup verfügbar.")
 
 # ==========================================
 # 10. RECHTLICHE HINWEISE & IMPRESSUM
