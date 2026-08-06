@@ -14,7 +14,7 @@ from geopy.geocoders import Nominatim
 # 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
 # ==========================================
 st.set_page_config(
-    page_title="Festival Matcher | Rock-Edition",
+    page_title="Festival-Matcher",
     page_icon="🎸",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -337,7 +337,7 @@ available_bands = sorted(
 # ==========================================
 # 6. HEADER & BAND-AUSWAHL
 # ==========================================
-st.title("🎸 ROCK YOUR FESTIVAL MATCH")
+st.title("🎸 FESTIVAL-MATCHER")
 
 st.subheader("🎤 Wähle deine Lieblings-Bands")
 
