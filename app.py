@@ -20,25 +20,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Dark/Rock Theme Styling
 st.markdown(
     """
     <style>
-    /* Haupt-Hintergrund und Textfarben */
     .stApp {
         background-color: #121212;
         color: #E0E0E0;
     }
-    
-    /* Überschriften */
     h1, h2, h3, h4, h5, h6 {
         color: #FF2A2A !important;
         font-family: 'Impact', 'Trebuchet MS', sans-serif;
         text-transform: uppercase;
         letter-spacing: 1px;
     }
-    
-    /* Buttons */
     .stButton>button {
         background-color: #A00000;
         color: #FFFFFF;
@@ -53,8 +47,6 @@ st.markdown(
         border-color: #FFFFFF;
         box-shadow: 0 0 10px #FF2A2A;
     }
-    
-    /* Karten & Container */
     .festival-card {
         background-color: #1E1E1E;
         border: 1px solid #333333;
@@ -63,14 +55,11 @@ st.markdown(
         border-radius: 5px;
         margin-bottom: 15px;
     }
-    
     .match-score {
         font-size: 24px;
         font-weight: bold;
         color: #00FF66;
     }
-    
-    /* Footer & Rechtliches */
     .footer-text {
         font-size: 12px;
         color: #888888;
@@ -85,14 +74,13 @@ st.markdown(
 
 
 # ==========================================
-# 2. HILFSFUNKTIONEN (PLZ-GEODATEN & PREISE)
+# 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
-@st.cache_data
+@st.cache_data(ttl="1h")
 def load_data():
   if not os.path.exists("festivals.json"):
     return [], "Unbekannt"
 
-  # Letztes Änderungsdatum der Datei auslesen
   mod_time = os.path.getmtime("festivals.json")
   last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
 
@@ -101,21 +89,29 @@ def load_data():
   return data, last_updated
 
 
-@st.cache_data
-def get_coordinates(plz, land="Deutschland"):
-  """Bestimmt Breiten- und Längengrad einer PLZ via Nominatim Geocoder."""
+USER_PLZ_CACHE = {}
+
+
+def get_user_coordinates(plz, land="Deutschland"):
+  if not plz:
+    return None, None
+  key = f"{plz}_{land}"
+  if key in USER_PLZ_CACHE:
+    return USER_PLZ_CACHE[key]
+
   try:
-    geolocator = Nominatim(user_agent="rock_festival_matcher_app")
-    location = geolocator.geocode(f"{plz}, {land}")
+    geolocator = Nominatim(user_agent="rock_festival_matcher_user_v3")
+    location = geolocator.geocode(f"{plz}, {land}", timeout=3)
     if location:
-      return location.latitude, location.longitude
+      res = (location.latitude, location.longitude)
+      USER_PLZ_CACHE[key] = res
+      return res
   except Exception:
     pass
   return None, None
 
 
 def parse_price(preis_str):
-  """Extrahiert eine Fließkommazahl aus einem Preis-String (z. B. 'VVK 279 €' -> 279.0)."""
   if not preis_str:
     return 0.0
   match = re.search(r"(\d+([.,]\d+)?)", preis_str.replace(".", ""))
@@ -125,7 +121,6 @@ def parse_price(preis_str):
 
 
 def parse_start_date(datum_str):
-  """Liest das Startdatum eines Festivals aus (z. B. '19.06.2026 - 21.06.2026' -> datetime)."""
   if not datum_str:
     return None
   match = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
@@ -149,7 +144,6 @@ if not raw_data:
   )
   st.stop()
 
-# Datensatz anreichern
 processed_data = []
 for f in raw_data:
   p_val = parse_price(f.get("preis", ""))
@@ -160,7 +154,6 @@ for f in raw_data:
   item["start_datum"] = s_date
   processed_data.append(item)
 
-# Unique Listen für Filter erzeugen
 all_countries = sorted(
     list(set([f["land"] for f in processed_data if f.get("land")]))
 )
@@ -185,7 +178,6 @@ max_price_in_data = (
 # ==========================================
 st.sidebar.title("🤘 FESTIVAL FILTER")
 
-# 1. Standorteingabe
 user_plz = st.sidebar.text_input(
     "Deine PLZ:",
     value="12345",
@@ -195,7 +187,6 @@ user_plz = st.sidebar.text_input(
     ),
 )
 
-# 2. Entfernungs-Schieberegler
 max_distance = st.sidebar.slider(
     "Max. Entfernung (km):",
     min_value=10,
@@ -205,7 +196,6 @@ max_distance = st.sidebar.slider(
     help="Grenzt die Festival-Suche auf einen maximalen Radius um deine PLZ ein.",
 )
 
-# 3. Preis-Schieberegler
 max_price = st.sidebar.slider(
     "Max. Preis (€):",
     min_value=0,
@@ -215,7 +205,6 @@ max_price = st.sidebar.slider(
     help="Filtert Festivals bis zu diesem Ticketpreis.",
 )
 
-# 4. Ländernauswahl
 selected_countries = st.sidebar.multiselect(
     "Länder:",
     options=all_countries,
@@ -223,14 +212,12 @@ selected_countries = st.sidebar.multiselect(
     help="Wähle die Länder aus, in denen du ein Festival besuchen möchtest.",
 )
 
-# 5. Datumsfilter
 min_date = st.sidebar.date_input(
     "Festival-Start ab:",
     value=datetime.today().date(),
     help="Es werden nur Festivals angezeigt, die an oder nach diesem Datum starten.",
 )
 
-# 6. Genre-Filter
 selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
@@ -244,38 +231,30 @@ selected_genres = st.sidebar.multiselect(
 # ==========================================
 # 5. GEODATEN & GEFILTERTE DATENBASIS
 # ==========================================
-user_lat, user_lon = get_coordinates(
+user_lat, user_lon = get_user_coordinates(
     user_plz,
     selected_countries[0] if len(selected_countries) == 1 else "Deutschland",
 )
 
 filtered_festivals = []
 for f in processed_data:
-  # Land
   if f.get("land") not in selected_countries:
     continue
-  # Preis
   if f["preis_num"] > max_price:
     continue
-  # Datum
   if f["start_datum"] and f["start_datum"] < min_date:
     continue
-  # Genre
   if selected_genres:
     f_genres = f.get("obergruppen_genre", [])
     if not any(g in f_genres for g in selected_genres):
       continue
 
-  # Entfernung berechnen
-  f_lat, f_lon = get_coordinates(f.get("plz"), f.get("land"))
-  f["lat"] = f_lat
-  f["lon"] = f_lon
-
+  f_lat, f_lon = f.get("lat"), f.get("lon")
   if user_lat and user_lon and f_lat and f_lon:
     dist = geodesic((user_lat, user_lon), (f_lat, f_lon)).km
     f["entfernung_km"] = round(dist, 1)
   else:
-    f["entfernung_km"] = 9999.0  # Fallback
+    f["entfernung_km"] = 9999.0
 
   if f["entfernung_km"] <= max_distance:
     filtered_festivals.append(f)
@@ -289,7 +268,6 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
   if user_lat and user_lon:
     m = folium.Map(location=[user_lat, user_lon], zoom_start=6)
 
-    # Radius-Kreis zeichnen
     folium.Circle(
         radius=max_distance * 1000,
         location=[user_lat, user_lon],
@@ -300,31 +278,31 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
         popup=f"Suchradius: {max_distance} km",
     ).add_to(m)
 
-    # Home-Marker
     folium.Marker(
         [user_lat, user_lon],
         popup=f"Dein Standort ({user_plz})",
         icon=folium.Icon(color="red", icon="home"),
     ).add_to(m)
 
-    # Festival-Marker
     for f in filtered_festivals:
       if f.get("lat") and f.get("lon"):
-        # HTML-Popup sicher entkommen gegen Anführungszeichen-Fehler
-        f_name_clean = html.escape(f['name'])
-        f_ort_clean = html.escape(f.get('ort', ''))
-        
+        f_name_clean = html.escape(f["name"])
+        f_ort_clean = html.escape(f.get("ort", ""))
+
         folium.Marker(
             [f["lat"], f["lon"]],
-            popup=f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>{f['entfernung_km']} km",
+            popup=(
+                f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>{f['entfernung_km']}"
+                " km"
+            ),
             icon=folium.Icon(color="black", icon="music"),
         ).add_to(m)
 
     st_folium(m, width="100%", height=350)
   else:
     st.warning(
-        "Konnte Standort für die eingegebene PLZ nicht bestimmen. Bitte zeige"
-        " eine gültige PLZ."
+        "Konnte Standort für die eingegebene PLZ nicht bestimmen. Bitte gib"
+        " eine gültige PLZ ein."
     )
 
 # ==========================================
@@ -332,7 +310,6 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
 # ==========================================
 st.subheader("🎤 Wähle deine Lieblings-Bands")
 
-# Auswählbare Bands basierend auf gefilterten Festivals sammeln
 available_bands = sorted(
     list(
         set([
@@ -353,14 +330,12 @@ selected_bands = st.multiselect(
     ),
 )
 
-# Band-Gewichtung
 band_weights = {}
 if selected_bands:
   st.write("🔥 **Band-Gewichtung (Doppelte Gewichtung möglich):**")
   cols = st.columns(min(len(selected_bands), 4))
   for idx, band in enumerate(selected_bands):
     col = cols[idx % 4]
-    # Checkbox / Toggle für doppelte Gewichtung
     double_weight = col.checkbox(f"2x: {band}", key=f"weight_{band}")
     band_weights[band] = 2.0 if double_weight else 1.0
 
@@ -368,8 +343,6 @@ if selected_bands:
 # 8. MATCHING-ALGORITHMUS & SORTIERUNG
 # ==========================================
 scored_festivals = []
-
-# Berechnungs-Logik
 total_user_weight = sum(band_weights.values())
 
 for f in filtered_festivals:
@@ -387,7 +360,6 @@ for f in filtered_festivals:
   f_copy["match_score"] = score_pct
   scored_festivals.append(f_copy)
 
-# SORTIERUNG: 1. Prozentzahl (absteigend), 2. Entfernung (aufsteigend), 3. Preis (aufsteigend)
 scored_festivals = sorted(
     scored_festivals,
     key=lambda x: (-x["match_score"], x["entfernung_km"], x["preis_num"]),
@@ -402,12 +374,14 @@ if not scored_festivals:
   st.info("Keine Festivals entsprechen deinen Kriterien. Passe die Filter an!")
 else:
   for f in scored_festivals:
-    # Treffer bei Bands identifizieren
     matching_bands = [
-        b
-        for b in selected_bands
-        if b in f.get("lineup", [])
+        b for b in selected_bands if b in f.get("lineup", [])
     ]
+    dist_display = (
+        f"{f['entfernung_km']} km"
+        if f["entfernung_km"] < 9999.0
+        else "Unbekannt"
+    )
 
     st.markdown(
         f"""
@@ -419,7 +393,7 @@ else:
             <p><strong>📅 Datum:</strong> {f.get('datum', 'k.A.')} | 
                <strong>💰 Preis:</strong> {f.get('preis', 'k.A.')} | 
                <strong>📍 Ort:</strong> {f.get('ort', 'k.A.')} ({f.get('land', '')}) | 
-               <strong>🚗 Entfernung:</strong> {f['entfernung_km']} km</p>
+               <strong>🚗 Entfernung:</strong> {dist_display}</p>
             <p><strong>🌐 Webseite:</strong> <a href="{f.get('webseite', '#')}" target="_blank" style="color: #FF2A2A;">{f.get('webseite', 'Keine Seite')}</a></p>
             <p><strong>🎸 Match-Bands:</strong> {', '.join(matching_bands) if matching_bands else 'Keine Übereinstimmung'}</p>
         </div>
