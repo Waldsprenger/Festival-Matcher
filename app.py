@@ -142,7 +142,7 @@ def get_user_coordinates(plz, land="Deutschland"):
 
 
 # ==========================================
-# 3. DATEN LADEN
+# 3. DATEN LADEN & SESSION STATE INIT
 # ==========================================
 processed_data, last_updated_time = load_data()
 
@@ -155,7 +155,7 @@ all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
 
-# Session-State-Initialisierung für Slider & Text-Inputs (synchrone Steuerung)
+# Session-State-Initialisierung für synchrone Regler & Datum
 if "max_dist_val" not in st.session_state:
     st.session_state.max_dist_val = 300
 if "max_price_val" not in st.session_state:
@@ -163,6 +163,7 @@ if "max_price_val" not in st.session_state:
 if "date_min_start" not in st.session_state:
     st.session_state.date_min_start = datetime.today().date()
 
+# Callbacks für synchrone Schieberegler & Zahlen-Inputs
 def sync_dist_from_input():
     st.session_state.max_dist_val = st.session_state.num_max_distance
 
@@ -174,6 +175,10 @@ def sync_price_from_input():
 
 def sync_price_from_slider():
     st.session_state.max_price_val = st.session_state.slider_max_price
+
+# Callback für "Heute"-Button
+def set_date_to_today():
+    st.session_state.date_min_start = datetime.today().date()
 
 
 # ==========================================
@@ -188,7 +193,7 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung (Tastatur-Eingabe mit Enter-Taste + Schieberegler synchronisiert)
+# Max. Entfernung (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -217,7 +222,7 @@ with col_dist_slider:
     )
 max_distance = st.session_state.max_dist_val
 
-# Max. Preis (Tastatur-Eingabe mit Enter-Taste + Schieberegler synchronisiert)
+# Max. Preis (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -254,30 +259,22 @@ selected_countries = st.sidebar.multiselect(
     help="Wähle die Länder aus, in denen du Festivals suchen möchtest."
 )
 
-# Hilfsfunktion (Callback) zum Zurücksetzen des Datums
-def set_date_to_today():
-    st.session_state.date_min_start = datetime.today().date()
-
-# Datumsfilter mit "Heute"-Button Option
+# Datumsfilter mit fehlerfreiem "Heute"-Callback
 col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
-
 with col_date_picker:
-    min_date = st.date_input(
+    min_date = st.sidebar.date_input(
         "Festival-Start ab:",
-        value=st.session_state.get("date_min_start", datetime.today().date()),
+        value=st.session_state.date_min_start,
         key="date_min_start",
         help="Filtert Festivals heraus, die vor diesem Datum beginnen."
     )
-
 with col_date_btn:
-    st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-    st.button(
+    st.sidebar.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+    st.sidebar.button(
         "📅 Heute", 
-        on_click=set_date_to_today, 
+        on_click=set_date_to_today,
         help="Setzt das Datum auf den heutigen Tag zurück."
-    ):
-        st.session_state.date_min_start = datetime.today().date()
-        st.rerun()
+    )
 
 show_one_day = st.sidebar.toggle(
     "Eintagesfestivals anzeigen",
