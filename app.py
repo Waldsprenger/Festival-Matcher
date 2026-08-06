@@ -157,9 +157,9 @@ all_genres = sorted(
 
 # Initialisierung der Werte im Session State
 if "max_dist_val" not in st.session_state:
-    st.session_state.max_dist_val = 300
+    st.session_state.max_dist_val = 500
 if "max_price_val" not in st.session_state:
-    st.session_state.max_price_val = 1000
+    st.session_state.max_price_val = 500
 
 # Callbacks: Aktualisieren den zentralen Wert UND synchronisieren das Gegen-Widget
 def sync_dist_from_input():
@@ -205,7 +205,7 @@ col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
     st.number_input(
         "KM Input", 
-        min_value=10, 
+        min_value=0, 
         max_value=2000, 
         value=st.session_state.max_dist_val, 
         step=50, 
@@ -217,7 +217,7 @@ with col_dist_input:
 with col_dist_slider:
     st.slider(
         "Entfernung Slider",
-        min_value=10,
+        min_value=0,
         max_value=2000,
         value=st.session_state.max_dist_val,
         step=50,
