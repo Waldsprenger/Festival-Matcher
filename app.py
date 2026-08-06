@@ -83,8 +83,89 @@ st.markdown(
 
 
 # ==========================================
-# 2. HILFSFUNKTIONEN & CACHING
+# 2. HILFSFUNKTIONEN (NAME MAPPING & LEVENSHTEIN)
 # ==========================================
+def levenshtein_distance(s1: str, s2: str) -> int:
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+def normalize_band_name(name: str) -> str:
+    name_clean = re.sub(r"[^\w\s]", "", name, flags=re.UNICODE)
+    return " ".join(name_clean.lower().split())
+
+
+def build_band_mapping(all_bands: list) -> dict:
+    normalized_groups = {}
+    for original_name in all_bands:
+        norm = normalize_band_name(original_name)
+        if norm not in normalized_groups:
+            normalized_groups[norm] = []
+        normalized_groups[norm].append(original_name)
+
+    canonical_names = {}
+    for norm, original_list in normalized_groups.items():
+        best_name = max(original_list, key=lambda x: (sum(1 for c in x if c.isupper()), -len(x)))
+        canonical_names[norm] = best_name
+
+    distinct_norms = list(canonical_names.keys())
+    mapping = {}
+
+    for i in range(len(distinct_norms)):
+        norm_i = distinct_norms[i]
+        if norm_i in mapping:
+            continue
+
+        target_norm = norm_i
+        for j in range(i + 1, len(distinct_norms)):
+            norm_j = distinct_norms[j]
+            if norm_j in mapping:
+                continue
+
+            dist = levenshtein_distance(norm_i, norm_j)
+            max_len = max(len(norm_i), len(norm_j))
+
+            if (max_len <= 5 and dist <= 1) or (max_len > 5 and dist <= 2):
+                mapping[norm_j] = canonical_names[target_norm]
+
+        mapping[norm_i] = canonical_names[target_norm]
+
+    final_mapping = {}
+    for original_name in all_bands:
+        norm = normalize_band_name(original_name)
+        final_mapping[original_name] = mapping.get(norm, original_name)
+
+    return final_mapping
+
+
+def canonicalize_lineups(data: list) -> list:
+    all_bands = [band for f in data for band in f.get("lineup", []) if band]
+    mapping = build_band_mapping(all_bands)
+
+    for f in data:
+        if "lineup" in f and f["lineup"]:
+            new_lineup = []
+            for band in f["lineup"]:
+                canonical = mapping.get(band, band)
+                if canonical not in new_lineup:
+                    new_lineup.append(canonical)
+            f["lineup"] = new_lineup
+    return data
+
+
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
     if not os.path.exists("festivals.json"):
@@ -99,8 +180,15 @@ def load_data():
     except Exception:
         return [], last_updated
 
+    # Bandnamen zusammenführen
+    data = canonicalize_lineups(data)
+
     processed = []
     for f in data:
+        # FILTER: Abgesagte Festivals ausschließen
+        if f.get("abgesagt", False):
+            continue
+
         preis_str = f.get("preis", "")
         p_val = 0.0
         if preis_str:
@@ -136,7 +224,7 @@ def get_user_coordinates(plz, land="Deutschland"):
     if not plz:
         return None, None
     try:
-        geolocator = Nominatim(user_agent="rock_festival_matcher_app_v7")
+        geolocator = Nominatim(user_agent="rock_festival_matcher_app_v8")
         location = geolocator.geocode(f"{plz}, {land}", timeout=8)
         if location:
             return location.latitude, location.longitude
@@ -154,7 +242,6 @@ if not processed_data:
     st.error("Keine Daten gefunden! Bitte stelle sicher, dass eine gültige 'festivals.json' im Ordner liegt.")
     st.stop()
 
-# Fehlerbehebung: Sicherstellen, dass None-Werte beim Sortieren herausgefiltert werden
 all_countries = sorted(list(set([f.get("land") for f in processed_data if f.get("land") is not None])))
 all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
@@ -198,7 +285,6 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung Synchronisation
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -227,7 +313,6 @@ with col_dist_slider:
     )
 max_distance = st.session_state.max_distance
 
-# Max. Preis Synchronisation
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -309,7 +394,6 @@ for f in processed_data:
         continue
     if f["preis_num"] > max_price:
         continue
-    # Fehlerbehebung: Abfangen von None-Werten bei start_datum
     if f["start_datum"] and min_date and f["start_datum"] < min_date:
         continue
     if not show_one_day and f.get("is_one_day", True):
@@ -391,7 +475,7 @@ scored_festivals = sorted(
 )
 
 # ==========================================
-# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS)
+# 8. KARTEN-ANZEIGE
 # ==========================================
 with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     if user_lat is not None and user_lon is not None:
@@ -483,6 +567,14 @@ else:
             """,
             unsafe_allow_html=True,
         )
+
+        # Alphabetisches Lineup im Ausklappmenü
+        sorted_full_lineup = sorted(f.get("lineup", []), key=lambda s: s.lower())
+        with st.expander(f"📋 Alphabetisches Line-up ({len(sorted_full_lineup)} Bands)"):
+            if sorted_full_lineup:
+                st.write(", ".join(sorted_full_lineup))
+            else:
+                st.write("Keine Lineup-Informationen verfügbar.")
 
 # ==========================================
 # 10. RECHTLICHE HINWEISE & IMPRESSUM
