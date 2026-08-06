@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import os
 import re
 import time
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from geopy.geocoders import Nominatim
 import requests
 
 BASE_URL = "https://www.festivalticker.de"
@@ -18,6 +20,7 @@ HEADERS = {
 }
 
 MAX_WORKERS = 25
+CACHE_FILE = "plz_cache.json"
 
 GENRE_MAPPING = {
     "Metal": [
@@ -105,6 +108,67 @@ session = requests.Session()
 session.headers.update(HEADERS)
 
 
+# --- CACHING SYSTEM FÜR GEOKOORDINATEN ---
+def load_plz_cache():
+  if os.path.exists(CACHE_FILE):
+    try:
+      with open(CACHE_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+    except Exception:
+      return {}
+  return {}
+
+
+def save_plz_cache(cache):
+  try:
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+      json.dump(cache, f, ensure_ascii=False, indent=2)
+  except Exception:
+    pass
+
+
+PLZ_CACHE = load_plz_cache()
+geolocator = Nominatim(user_agent="festival_scraper_geocoder_v3")
+
+
+def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = ""):
+  """Holt Koordinaten mit Rate-Limit-Schutz (1 Req/Sek) & Ort-Fallback."""
+  if not plz and not ort:
+    return None, None
+
+  plz_str = str(plz).strip() if plz else ""
+  land_str = str(land).strip() if land else "Deutschland"
+  ort_str = str(ort).strip() if ort else ""
+
+  cache_key = f"{plz_str}_{ort_str}_{land_str}"
+
+  # 1. Aus Cache lesen
+  if cache_key in PLZ_CACHE:
+    c = PLZ_CACHE[cache_key]
+    return c.get("lat"), c.get("lon")
+
+  # 2. Falls nicht im Cache: Sanfte API-Abfrage
+  try:
+    query = f"{plz_str} {ort_str}, {land_str}".strip()
+    location = geolocator.geocode(query, timeout=5)
+
+    # Fallback: Nur Ort & Land versuchen
+    if not location and ort_str:
+      location = geolocator.geocode(f"{ort_str}, {land_str}", timeout=5)
+
+    if location:
+      lat, lon = location.latitude, location.longitude
+      PLZ_CACHE[cache_key] = {"lat": lat, "lon": lon}
+      # 1.1 Sekunden Pause um OpenStreetMap-Richtlinien einzuhalten
+      time.sleep(1.1)
+      return lat, lon
+  except Exception:
+    pass
+
+  return None, None
+
+
+# --- TEXT- UND BEREINIGUNGSFUNKTIONEN ---
 def clean_text(text: str) -> str:
   if not text:
     return ""
@@ -112,17 +176,12 @@ def clean_text(text: str) -> str:
 
 
 def clean_band_name(name: str) -> str:
-  """Entfernt Anhänge wie 'und weitere', 'u.a.', 'und viele mehr' am Ende von Bandnamen."""
   if not name:
     return ""
-
-  # Pattern für Phrasen am Ende des Strings
   pattern = (
       r"\s+(und\s+weitere|und\s+viele\s+mehr|u\.a\.|u\.v\.m\.|und\s+viele\s+weitere)$"
   )
   cleaned = re.sub(pattern, "", name, flags=re.IGNORECASE).strip()
-
-  # Prüfen, ob der String ausschließlich aus einer solchen Phrase bestand
   if cleaned.lower() in [
       "und weitere",
       "und viele mehr",
@@ -131,7 +190,6 @@ def clean_band_name(name: str) -> str:
       "und viele weitere",
   ]:
     return ""
-
   return cleaned
 
 
@@ -147,6 +205,7 @@ def map_genres_to_main_categories(subgenres: list[str]) -> list[str]:
   return sorted(list(matched_main_genres)) or ["Sonstige / Mixed"]
 
 
+# --- SCRAPING-LOGIK ---
 def get_all_festival_links(start_url: str) -> list[str]:
   print(f"[+] Lade Übersichtsseite: {start_url}")
   try:
@@ -192,6 +251,8 @@ def parse_festival_page(url: str) -> dict:
       "land": "",
       "webseite": "",
       "lineup": [],
+      "lat": None,
+      "lon": None,
   }
 
   try:
@@ -302,7 +363,7 @@ def parse_festival_page(url: str) -> dict:
         elif not href.startswith("javascript:"):
           data["webseite"] = urljoin(BASE_URL, href)
 
-  # 7. Lineup / Bands (mit Säuberung von "und weitere")
+  # 7. Lineup / Bands
   bands_strong = soup.find(
       lambda tag: tag.name == "strong" and "Bands:" in tag.get_text()
   )
@@ -321,7 +382,6 @@ def parse_festival_page(url: str) -> dict:
     if "zum kompletten Programm" in raw_bands:
       raw_bands = raw_bands.split("zum kompletten Programm")[0]
 
-    # Extraktion + Anwendung von clean_band_name()
     if "," in raw_bands:
       raw_list = [b.strip() for b in raw_bands.split(",") if b.strip()]
       cleaned_list = [clean_band_name(b) for b in raw_list]
@@ -343,7 +403,7 @@ def main():
     return
 
   results = []
-  print(f"[+] Starte Multithreading mit {MAX_WORKERS} Threads...")
+  print(f"[+] 1. Starte schnelles HTML-Scraping mit {MAX_WORKERS} Threads...")
 
   with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     future_to_url = {
@@ -358,15 +418,26 @@ def main():
       data = future.result()
       if data["name"]:
         results.append(data)
-      print(f"[{completed_count}/{total_links}] Verarbeitet: {data['name']}")
+      print(f"[{completed_count}/{total_links}] Gescrapt: {data['name']}")
+
+  # --- SCHRITT 2: Geokodierung sequentiell & schonend durchführen ---
+  print("\n[+] 2. Ermittle Geokoordinaten (mit Rate-Limit Schutz & Caching)...")
+  for idx, item in enumerate(results, 1):
+    lat, lon = get_coordinates_safe(
+        item.get("plz"), item.get("land", "Deutschland"), item.get("ort")
+    )
+    item["lat"] = lat
+    item["lon"] = lon
+
+  save_plz_cache(PLZ_CACHE)
 
   output_filename = "festivals.json"
   with open(output_filename, "w", encoding="utf-8") as f:
     json.dump(results, f, ensure_ascii=False, indent=4)
 
   print(
-      f"\n[✔] Fertig! {len(results)} Festivals in '{output_filename}' gespeichert"
-      f" ({round(time.time() - start_time, 2)}s)."
+      f"\n[✔] Fertig! {len(results)} Festivals komplett in '{output_filename}'"
+      f" gespeichert ({round(time.time() - start_time, 2)}s)."
   )
 
 
