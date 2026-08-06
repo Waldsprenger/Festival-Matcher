@@ -199,6 +199,7 @@ st.sidebar.title("🤘 FESTIVAL FILTER")
 user_plz = st.sidebar.text_input(
     "Deine PLZ:",
     value="12345",
+    key="input_user_plz",
     help="Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu berechnen.",
 )
 
@@ -207,7 +208,13 @@ st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
     max_distance_val = st.number_input(
-        "KM", min_value=10, max_value=2000, value=300, step=50, label_visibility="collapsed"
+        "KM", 
+        min_value=10, 
+        max_value=2000, 
+        value=300, 
+        step=50, 
+        label_visibility="collapsed",
+        key="num_max_distance"
     )
 with col_dist_slider:
     max_distance = st.slider(
@@ -217,6 +224,7 @@ with col_dist_slider:
         value=int(max_distance_val),
         step=50,
         label_visibility="collapsed",
+        key="slider_max_distance"
     )
 
 # Max. Preis bis 1.000 €
@@ -230,6 +238,7 @@ with col_price_input:
         value=1000,
         step=10,
         label_visibility="collapsed",
+        key="num_max_price"
     )
 with col_price_slider:
     max_price = st.slider(
@@ -239,23 +248,26 @@ with col_price_slider:
         value=int(max_price_val),
         step=10,
         label_visibility="collapsed",
+        key="slider_max_price"
     )
 
 selected_countries = st.sidebar.multiselect(
     "Länder:",
     options=all_countries,
     default=all_countries,
+    key="multiselect_countries"
 )
 
 min_date = st.sidebar.date_input(
     "Festival-Start ab:",
     value=datetime.today().date(),
+    key="date_min_start"
 )
 
-# NEU: Toggle für Eintagesfestivals
 show_one_day = st.sidebar.toggle(
     "Eintagesfestivals anzeigen",
     value=True,
+    key="toggle_one_day_festivals",
     help="Deaktiviere diesen Schalter, um nur mehrtägige Festivals anzuzeigen."
 )
 
@@ -263,13 +275,7 @@ selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
     default=[],
-)
-
-
-selected_genres = st.sidebar.multiselect(
-    "Genres einschränken:",
-    options=all_genres,
-    default=[],
+    key="multiselect_genres"  # <--- Eindeutiger Key behebt den Fehler!
 )
 
 # ==========================================
