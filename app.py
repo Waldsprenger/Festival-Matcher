@@ -155,26 +155,32 @@ all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
 
-# Session-State-Initialisierung für synchrone Regler & Datum
+# Initialisierung der Werte im Session State
 if "max_dist_val" not in st.session_state:
     st.session_state.max_dist_val = 300
 if "max_price_val" not in st.session_state:
     st.session_state.max_price_val = 1000
-if "date_min_start" not in st.session_state:
-    st.session_state.date_min_start = datetime.today().date()
 
-# Callbacks für synchrone Schieberegler & Zahlen-Inputs
+# Callbacks: Aktualisieren den zentralen Wert UND synchronisieren das Gegen-Widget
 def sync_dist_from_input():
-    st.session_state.max_dist_val = st.session_state.num_max_distance
+    val = st.session_state.num_max_distance
+    st.session_state.max_dist_val = val
+    st.session_state.slider_max_distance = val
 
 def sync_dist_from_slider():
-    st.session_state.max_dist_val = st.session_state.slider_max_distance
+    val = st.session_state.slider_max_distance
+    st.session_state.max_dist_val = val
+    st.session_state.num_max_distance = val
 
 def sync_price_from_input():
-    st.session_state.max_price_val = st.session_state.num_max_price
+    val = st.session_state.num_max_price
+    st.session_state.max_price_val = val
+    st.session_state.slider_max_price = val
 
 def sync_price_from_slider():
-    st.session_state.max_price_val = st.session_state.slider_max_price
+    val = st.session_state.slider_max_price
+    st.session_state.max_price_val = val
+    st.session_state.num_max_price = val
 
 # Callback für "Heute"-Button
 def set_date_to_today():
@@ -193,7 +199,7 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
+# Max. Entfernung
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -222,7 +228,7 @@ with col_dist_slider:
     )
 max_distance = st.session_state.max_dist_val
 
-# Max. Preis (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
+# Max. Preis
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -264,7 +270,7 @@ col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
 with col_date_picker:
     min_date = st.sidebar.date_input(
         "Festival-Start ab:",
-        value=st.session_state.date_min_start,
+        value=st.session_state.get("date_min_start", datetime.today().date()),
         key="date_min_start",
         help="Filtert Festivals heraus, die vor diesem Datum beginnen."
     )
