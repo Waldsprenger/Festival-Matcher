@@ -118,7 +118,6 @@ def save_plz_cache() -> None:
             print(f"Fehler beim Speichern des Cache: {e}")
 
 
-# Cache und Geolocator nach Funktionsdefinitionen initialisieren
 PLZ_CACHE: Dict[str, Any] = load_plz_cache()
 geolocator = Nominatim(user_agent="my_festival_scraper_app_v1.0 (waldsprenger@gmail.com)")
 
@@ -149,21 +148,18 @@ def get_coordinates_safe(plz: str, land: str = "Deutschland", ort: str = "") -> 
 
     cache_key = f"{plz_str}_{ort_str}_{land_str}"
 
-    # Cache Prüfung vor Lock-Erwerb
     with cache_lock:
         if cache_key in PLZ_CACHE:
             c = PLZ_CACHE[cache_key]
             return c.get("lat"), c.get("lon")
 
-    # Geocoding synchronisieren & Rate Limit einhalten
     with geo_lock:
-        # Re-Check im Lock
         with cache_lock:
             if cache_key in PLZ_CACHE:
                 c = PLZ_CACHE[cache_key]
                 return c.get("lat"), c.get("lon")
 
-        time.sleep(1.2)  # Nominatim Rate-Limit
+        time.sleep(1.2)
         try:
             query = f"{plz_str} {ort_str}, {land_str}".strip()
             location = geolocator.geocode(query, timeout=10)
@@ -197,16 +193,10 @@ def clean_band_name(name: str) -> str:
     if not name:
         return ""
     
-    # 1. Vorangestellte Uhrzeiten und Zeitspannen entfernen (z.B. "18:30 Uhr Band", "14:00 - 15:30 Band", "14.00-15.30 Band")
     cleaned = re.sub(r"^\s*(\d{1,2}[:.]\d{2}\s*(Uhr)?\s*(-|bis)?\s*(\d{1,2}[:.]\d{2}\s*(Uhr)?)?|\d{1,2}\s*Uhr)\s*[-:]?\s*", "", name, flags=re.IGNORECASE).strip()
-
-    # 2. Nachgestellte Uhrzeiten / Klammern mit Zeitangaben entfernen (z.B. "Band (18:30 Uhr)", "Band 18:30")
     cleaned = re.sub(r"\s*[\(\[\{]?\s*\d{1,2}[:.]\d{2}\s*(Uhr)?\s*[\)\]\}]?\s*$", "", cleaned, flags=re.IGNORECASE).strip()
-
-    # 3. Genres in Klammern entfernen (z.B. "Bandname (Genre)")
     cleaned = re.sub(r"\s*[\(\[\{].*?[\)\]\}]", "", cleaned).strip()
     
-    # 4. Floskeln wie "und weitere" entfernen
     pattern = r"\s*[\, \-]*\b(und\s+weitere|und\s+viele\s+mehr|u\.a\.|u\.v\.m\.|und\s+viele\s+weitere)\b.*$"
     cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE).strip()
     
@@ -256,7 +246,6 @@ def get_all_festival_links(start_urls: List[str]) -> List[str]:
 
 
 def is_valid_official_website(url: str) -> bool:
-    """Prüft, ob eine URL die tatsächliche offizielle Website ist."""
     if not url or not url.startswith("http"):
         return False
 
@@ -300,8 +289,17 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Prüfe auf Absage (durchgestrichener Haupttext, <strike> oder <del> Tag)
-    if soup.find(["strike", "del"]):
+    # PRÜFUNG AUF ABSAGE BEINHALTET JETZT CLASS="line-through"
+    has_strike = bool(
+        soup.find_all(["strike", "del"])
+        or soup.find_all(class_=re.compile(r"\bline-through\b", re.I))
+        or soup.find_all(attrs={"style": re.compile(r"text-decoration\s*:\s*line-through", re.I)})
+    )
+    
+    page_text_lower = soup.get_text().lower()
+    has_cancel_word = bool(re.search(r"\b(abgesag|absage)\w*", page_text_lower))
+
+    if has_strike and has_cancel_word:
         data["abgesagt"] = True
 
     # 1. Festival Name
@@ -412,7 +410,6 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
                 target_container = parent_td
 
         if target_container:
-            # Unterelemente extrahieren und Zeilenumbrüche/Tags durch Kommata ersetzen
             parts = []
             for elem in target_container.descendants:
                 if isinstance(elem, str):
@@ -423,14 +420,12 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
                     parts.append(",")
 
             raw_bands = " ".join(parts)
-            # Mehrfache Kommata und Leerzeichen bereinigen
             raw_bands = re.sub(r"\s*,\s*", ", ", raw_bands)
             raw_bands = clean_text(raw_bands)
 
             if "zum kompletten Programm" in raw_bands:
                 raw_bands = raw_bands.split("zum kompletten Programm")[0]
 
-            # Bands parsen
             raw_list = [b.strip() for b in raw_bands.split(",") if b.strip()]
             cleaned_list = [clean_band_name(b) for b in raw_list]
             data["lineup"] = [b for b in cleaned_list if b]
