@@ -155,34 +155,33 @@ all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
 
-# Initialisierung der Werte im Session State
-if "max_dist_val" not in st.session_state:
-    st.session_state.max_dist_val = 500
-if "max_price_val" not in st.session_state:
-    st.session_state.max_price_val = 500
+# Saubere Initialisierung der Session States für Inputs & Sliders
+if "num_max_distance" not in st.session_state:
+    st.session_state.num_max_distance = 500
+if "slider_max_distance" not in st.session_state:
+    st.session_state.slider_max_distance = 500
 
-# Callbacks: Aktualisieren den zentralen Wert UND synchronisieren das Gegen-Widget
+if "num_max_price" not in st.session_state:
+    st.session_state.num_max_price = 500
+if "slider_max_price" not in st.session_state:
+    st.session_state.slider_max_price = 500
+
+if "date_min_start" not in st.session_state:
+    st.session_state.date_min_start = datetime.today().date()
+
+# Synchronisations-Callbacks
 def sync_dist_from_input():
-    val = st.session_state.num_max_distance
-    st.session_state.max_dist_val = val
-    st.session_state.slider_max_distance = val
+    st.session_state.slider_max_distance = st.session_state.num_max_distance
 
 def sync_dist_from_slider():
-    val = st.session_state.slider_max_distance
-    st.session_state.max_dist_val = val
-    st.session_state.num_max_distance = val
+    st.session_state.num_max_distance = st.session_state.slider_max_distance
 
 def sync_price_from_input():
-    val = st.session_state.num_max_price
-    st.session_state.max_price_val = val
-    st.session_state.slider_max_price = val
+    st.session_state.slider_max_price = st.session_state.num_max_price
 
 def sync_price_from_slider():
-    val = st.session_state.slider_max_price
-    st.session_state.max_price_val = val
-    st.session_state.num_max_price = val
+    st.session_state.num_max_price = st.session_state.slider_max_price
 
-# Callback für "Heute"-Button
 def set_date_to_today():
     st.session_state.date_min_start = datetime.today().date()
 
@@ -207,7 +206,6 @@ with col_dist_input:
         "KM Input", 
         min_value=0, 
         max_value=2000, 
-        value=st.session_state.max_dist_val, 
         step=50, 
         label_visibility="collapsed",
         key="num_max_distance",
@@ -219,14 +217,13 @@ with col_dist_slider:
         "Entfernung Slider",
         min_value=0,
         max_value=2000,
-        value=st.session_state.max_dist_val,
         step=50,
         label_visibility="collapsed",
         key="slider_max_distance",
         on_change=sync_dist_from_slider,
         help="Ziehe den Regler, um den maximalen Radius in km anzupassen."
     )
-max_distance = st.session_state.max_dist_val
+max_distance = st.session_state.num_max_distance
 
 # Max. Preis
 st.sidebar.markdown("**Max. Preis (€):**")
@@ -236,7 +233,6 @@ with col_price_input:
         "EUR Input",
         min_value=0,
         max_value=1000,
-        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
         key="num_max_price",
@@ -248,14 +244,13 @@ with col_price_slider:
         "Preis Slider",
         min_value=0,
         max_value=1000,
-        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
         key="slider_max_price",
         on_change=sync_price_from_slider,
         help="Ziehe den Regler, um das maximale Ticketbudget festzulegen."
     )
-max_price = st.session_state.max_price_val
+max_price = st.session_state.num_max_price
 
 selected_countries = st.sidebar.multiselect(
     "Länder:",
@@ -265,12 +260,11 @@ selected_countries = st.sidebar.multiselect(
     help="Wähle die Länder aus, in denen du Festivals suchen möchtest."
 )
 
-# Datumsfilter mit fehlerfreiem "Heute"-Callback
+# Datumsfilter
 col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
 with col_date_picker:
     min_date = st.sidebar.date_input(
         "Festival-Start ab:",
-        value=st.session_state.get("date_min_start", datetime.today().date()),
         key="date_min_start",
         help="Filtert Festivals heraus, die vor diesem Datum beginnen."
     )
