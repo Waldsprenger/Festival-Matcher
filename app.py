@@ -324,15 +324,14 @@ scored_festivals = sorted(
 )
 
 # ==========================================
-# 8. KARTEN-ANZEIGE (NUR MATCH-ERGEBNISSE & DYNAMISCHER ZOOM)
+# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS)
 # ==========================================
 with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     if user_lat and user_lon:
-        # Dynamischen Zoom-Level abhängig von der Entfernung setzen
-        calculated_zoom = calculate_zoom_level(max_distance)
-        m = folium.Map(location=[user_lat, user_lon], zoom_start=calculated_zoom)
+        # Karte initial ohne festen Zoom laden
+        m = folium.Map(location=[user_lat, user_lon])
 
-        # Suchradius
+        # Suchradius einzeichnen
         folium.Circle(
             radius=max_distance * 1000,
             location=[user_lat, user_lon],
@@ -350,7 +349,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
             icon=folium.Icon(color="red", icon="home"),
         ).add_to(m)
 
-        # Nur Marker der gefilterten Match-Ergebnisse anzeigen
+        # Marker der gefilterten Match-Ergebnisse anzeigen
         for f in scored_festivals:
             if f.get("lat") and f.get("lon"):
                 f_name_clean = html.escape(f["name"])
@@ -363,12 +362,25 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
                     icon=folium.Icon(color="black", icon="music"),
                 ).add_to(m)
 
+        # ------------------------------------------------------------------
+        # Bounding Box des Radius berechnen & Karte exakt darauf anpassen
+        # 1 Grad Breitengrad ≈ 111 km
+        # ------------------------------------------------------------------
+        lat_delta = max_distance / 111.0
+        # Begrenzung auf max. 85 Grad Nord/Süd, um Folium-Fehler bei 10.000km zu vermeiden
+        south = max(-85.0, user_lat - lat_delta)
+        north = min(85.0, user_lat + lat_delta)
+        west = user_lon - lat_delta
+        east = user_lon + lat_delta
+
+        # Zwingt die Karte dazu, die Box (Südwest-Ecke, Nordost-Ecke) voll anzuzeigen
+        m.fit_bounds([[south, west], [north, east]])
+
         st_folium(m, width="100%", height=500, key="festival_map")
     else:
         st.warning(
             "Konnte Standort für die eingegebene PLZ nicht bestimmen."
         )
-
 # ==========================================
 # 9. ERGEBNIS-ANZEIGE
 # ==========================================
