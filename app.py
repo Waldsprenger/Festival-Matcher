@@ -5,10 +5,10 @@ import re
 from datetime import datetime
 import folium
 import pandas as pd
-import pgeocode
 import streamlit as st
 from streamlit_folium import st_folium
 from geopy.distance import geodesic
+from geopy.geocoders import Nominatim
 
 # ==========================================
 # 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
@@ -72,8 +72,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 # ==========================================
-# 2. HILFSFUNKTIONEN & OFFLINE-GEOCODING
+# 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
 @st.cache_data(ttl="1h")
 def load_data():
@@ -88,29 +89,25 @@ def load_data():
   return data, last_updated
 
 
-@st.cache_data
-def get_user_coordinates_offline(plz_text, land="Deutschland"):
-  """Offline-Bestimmung der Koordinaten über pgeocode (immun gegen Cloud-Sperren)."""
-  if not plz_text:
-    return None, None
+USER_PLZ_CACHE = {}
 
-  plz_clean = str(plz_text).strip()
-  
-  # Ländercode zuweisen
-  country_code = "DE"
-  if "österreich" in land.lower() or "austria" in land.lower():
-    country_code = "AT"
-  elif "schweiz" in land.lower() or "switzerland" in land.lower():
-    country_code = "CH"
+
+def get_user_coordinates(plz, land="Deutschland"):
+  if not plz:
+    return None, None
+  key = f"{plz}_{land}"
+  if key in USER_PLZ_CACHE:
+    return USER_PLZ_CACHE[key]
 
   try:
-    nomi = pgeocode.Nomi(country_code)
-    res = nomi.query_postal_code(plz_clean)
-    if not pd.isna(res.latitude) and not pd.isna(res.longitude):
-      return float(res.latitude), float(res.longitude)
+    geolocator = Nominatim(user_agent="rock_festival_matcher_user_v3")
+    location = geolocator.geocode(f"{plz}, {land}", timeout=3)
+    if location:
+      res = (location.latitude, location.longitude)
+      USER_PLZ_CACHE[key] = res
+      return res
   except Exception:
     pass
-
   return None, None
 
 
@@ -141,7 +138,10 @@ def parse_start_date(datum_str):
 raw_data, last_updated_time = load_data()
 
 if not raw_data:
-  st.error("Keine Daten gefunden! Bitte stelle sicher, dass 'festivals.json' im Ordner liegt.")
+  st.error(
+      "Keine Daten gefunden! Bitte stelle sicher, dass 'festivals.json' im"
+      " Ordner liegt."
+  )
   st.stop()
 
 processed_data = []
@@ -154,9 +154,24 @@ for f in raw_data:
   item["start_datum"] = s_date
   processed_data.append(item)
 
-all_countries = sorted(list(set([f["land"] for f in processed_data if f.get("land")])))
-all_genres = sorted(list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g])))
-max_price_in_data = max([f["preis_num"] for f in processed_data]) if processed_data else 500.0
+all_countries = sorted(
+    list(set([f["land"] for f in processed_data if f.get("land")]))
+)
+all_genres = sorted(
+    list(
+        set([
+            g
+            for f in processed_data
+            for g in f.get("obergruppen_genre", [])
+            if g
+        ])
+    )
+)
+max_price_in_data = (
+    max([f["preis_num"] for f in processed_data])
+    if processed_data
+    else 500.0
+)
 
 # ==========================================
 # 4. SIDEBAR - FILTER & EINSTELLUNGEN
@@ -165,15 +180,18 @@ st.sidebar.title("🤘 FESTIVAL FILTER")
 
 user_plz = st.sidebar.text_input(
     "Deine PLZ:",
-    value="68161",
-    help="Gib deine Postleitzahl ein.",
+    value="12345",
+    help=(
+        "Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu"
+        " berechnen."
+    ),
 )
 
 max_distance = st.sidebar.slider(
     "Max. Entfernung (km):",
     min_value=10,
     max_value=1000,
-    value=500,
+    value=300,
     step=10,
     help="Grenzt die Festival-Suche auf einen maximalen Radius um deine PLZ ein.",
 )
@@ -204,13 +222,16 @@ selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
     default=[],
-    help="Filtert Festivals nach Musikrichtungen und schränkt die auswählbaren Bands ein.",
+    help=(
+        "Filtert Festivals nach Musikrichtungen und schränkt die auswählbaren"
+        " Bands ein."
+    ),
 )
 
 # ==========================================
 # 5. GEODATEN & GEFILTERTE DATENBASIS
 # ==========================================
-user_lat, user_lon = get_user_coordinates_offline(
+user_lat, user_lon = get_user_coordinates(
     user_plz,
     selected_countries[0] if len(selected_countries) == 1 else "Deutschland",
 )
@@ -229,14 +250,13 @@ for f in processed_data:
       continue
 
   f_lat, f_lon = f.get("lat"), f.get("lon")
-
   if user_lat and user_lon and f_lat and f_lon:
     dist = geodesic((user_lat, user_lon), (f_lat, f_lon)).km
     f["entfernung_km"] = round(dist, 1)
   else:
-    f["entfernung_km"] = 0.0 if not (user_lat and user_lon) else 9999.0
+    f["entfernung_km"] = 9999.0
 
-  if (user_lat and user_lon and f["entfernung_km"] <= max_distance) or not (user_lat and user_lon):
+  if f["entfernung_km"] <= max_distance:
     filtered_festivals.append(f)
 
 # ==========================================
@@ -271,25 +291,43 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
 
         folium.Marker(
             [f["lat"], f["lon"]],
-            popup=f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>{f['entfernung_km']} km",
+            popup=(
+                f"<b>{f_name_clean}</b><br>{f_ort_clean}<br>{f['entfernung_km']}"
+                " km"
+            ),
             icon=folium.Icon(color="black", icon="music"),
         ).add_to(m)
 
     st_folium(m, width="100%", height=350)
   else:
-    st.warning(f"Konnte keinen Standort für die PLZ '{user_plz}' ermitteln. Zeige alle Festivals ohne Distanzbegrenzung.")
+    st.warning(
+        "Konnte Standort für die eingegebene PLZ nicht bestimmen. Bitte gib"
+        " eine gültige PLZ ein."
+    )
 
 # ==========================================
 # 7. BAND-AUSWAHL & GEWICHTUNG
 # ==========================================
 st.subheader("🎤 Wähle deine Lieblings-Bands")
 
-available_bands = sorted(list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band])))
+available_bands = sorted(
+    list(
+        set([
+            band
+            for f in filtered_festivals
+            for band in f.get("lineup", [])
+            if band
+        ])
+    )
+)
 
 selected_bands = st.multiselect(
     "Suche & wähle Bands (unbegrenzt):",
     options=available_bands,
-    help="Wähle Bands aus dem verfügbaren Pool aus.",
+    help=(
+        "Wähle Bands aus dem verfügbaren Pool aus. Es stehen nur Bands aus den"
+        " gefilterten Festivals zur Auswahl."
+    ),
 )
 
 band_weights = {}
@@ -311,7 +349,9 @@ for f in filtered_festivals:
   f_bands = f.get("lineup", [])
 
   if total_user_weight > 0:
-    matched_weight = sum([weight for band, weight in band_weights.items() if band in f_bands])
+    matched_weight = sum(
+        [weight for band, weight in band_weights.items() if band in f_bands]
+    )
     score_pct = round((matched_weight / total_user_weight) * 100, 1)
   else:
     score_pct = 0.0
@@ -334,8 +374,14 @@ if not scored_festivals:
   st.info("Keine Festivals entsprechen deinen Kriterien. Passe die Filter an!")
 else:
   for f in scored_festivals:
-    matching_bands = [b for b in selected_bands if b in f.get("lineup", [])]
-    dist_display = f"{f['entfernung_km']} km" if f["entfernung_km"] < 9999.0 and f["entfernung_km"] > 0 else "N/A"
+    matching_bands = [
+        b for b in selected_bands if b in f.get("lineup", [])
+    ]
+    dist_display = (
+        f"{f['entfernung_km']} km"
+        if f["entfernung_km"] < 9999.0
+        else "Unbekannt"
+    )
 
     st.markdown(
         f"""
