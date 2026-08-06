@@ -1,12 +1,9 @@
 import html
 import json
-import math
 import os
 import re
-from urllib.parse import quote_plus
 from datetime import datetime
 import folium
-import numpy as np
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
@@ -17,7 +14,7 @@ from geopy.geocoders import Nominatim
 # 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
 # ==========================================
 st.set_page_config(
-    page_title="Festival-Matcher",
+    page_title="Festival Matcher | Rock-Edition",
     page_icon="🎸",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -87,14 +84,6 @@ st.markdown(
 # ==========================================
 # 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
-@st.cache_data
-def load_coords_cache():
-    try:
-        with open("coords_cache.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
     if not os.path.exists("festivals.json"):
@@ -103,52 +92,8 @@ def load_data():
     mod_time = os.path.getmtime("festivals.json")
     last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
 
-    try:
-        with open("festivals.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as e:
-        st.error(f"Fehler beim Laden der Festivaldaten: {e}")
-        return pd.DataFrame()
-
-    processed_data = []
-    for f in data:
-        lat = f.get("lat")
-        lon = f.get("lon")
-
-        # Fallback: Falls lat/lon null sind, aus coords_cache.json ermitteln
-        if lat is None or lon is None:
-            plz = str(f.get("plz", "")).strip()
-            land = f.get("land", "Deutschland").strip()
-            ort = f.get("ort", "").strip()
-
-            cache_key = f"{plz}_{land}"
-            if cache_key in coords_cache:
-                lat, lon = coords_cache[cache_key]
-            else:
-                alt_cache_key = f"{plz}_{ort}_{land}"
-                if alt_cache_key in coords_cache:
-                    lat, lon = coords_cache[alt_cache_key]
-
-        item = {
-            "name": f.get("name", "Unbekannt"),
-            "genre": f.get("genre", "Diverse"),
-            "ort": f.get("ort", "Unbekannt"),
-            "plz": f.get("plz", ""),
-            "land": f.get("land", "Deutschland"),
-            "startdatum": f.get("startdatum", ""),
-            "enddatum": f.get("enddatum", ""),
-            "lat": lat,
-            "lon": lon,
-            "webseite": f.get("webseite", "#"),
-            "besucher": f.get("besucher", 0),
-        }
-        processed_data.append(item)
-
-    df = pd.DataFrame(processed_data)
-    if not df.empty:
-        df["startdatum_dt"] = pd.to_datetime(df["startdatum"], errors="coerce")
-        df["enddatum_dt"] = pd.to_datetime(df["enddatum"], errors="coerce")
-    return df
+    with open("festivals.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
 
     processed = []
     for f in data:
@@ -181,20 +126,6 @@ def load_data():
 
     return processed, last_updated
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-    if any(v is None or math.isnan(v) for v in [lat1, lon1, lat2, lon2]):
-        return 99999.0
-    R = 6371.0  # Erdradius in km
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
 
 @st.cache_data(ttl="7d", show_spinner=False)
 def get_user_coordinates(plz, land="Deutschland"):
@@ -211,7 +142,7 @@ def get_user_coordinates(plz, land="Deutschland"):
 
 
 # ==========================================
-# 3. DATEN LADEN & SYNCHRONISATION
+# 3. DATEN LADEN
 # ==========================================
 processed_data, last_updated_time = load_data()
 
@@ -224,29 +155,23 @@ all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
 
-# Session-State-Initialisierung für synchrone Zwei-Wege-Bindung
-if "num_max_distance" not in st.session_state:
-    st.session_state.num_max_distance = 300
-if "slider_max_distance" not in st.session_state:
-    st.session_state.slider_max_distance = 300
+# Session-State-Initialisierung für Slider & Text-Inputs (für synchrone Enter-Tasten-Bestätigung)
+if "max_dist_val" not in st.session_state:
+    st.session_state.max_dist_val = 300
+if "max_price_val" not in st.session_state:
+    st.session_state.max_price_val = 1000
 
-if "num_max_price" not in st.session_state:
-    st.session_state.num_max_price = 1000
-if "slider_max_price" not in st.session_state:
-    st.session_state.slider_max_price = 1000
+def sync_dist_input():
+    st.session_state.max_dist_val = st.session_state.num_max_distance
 
-# Callbacks für Zwei-Wege-Synchronisation
-def sync_dist_from_num():
-    st.session_state.slider_max_distance = st.session_state.num_max_distance
+def sync_dist_slider():
+    st.session_state.max_dist_val = st.session_state.slider_max_distance
 
-def sync_dist_from_slider():
-    st.session_state.num_max_distance = st.session_state.slider_max_distance
+def sync_price_input():
+    st.session_state.max_price_val = st.session_state.num_max_price
 
-def sync_price_from_num():
-    st.session_state.slider_max_price = st.session_state.num_max_price
-
-def sync_price_from_slider():
-    st.session_state.num_max_price = st.session_state.slider_max_price
+def sync_price_slider():
+    st.session_state.max_price_val = st.session_state.slider_max_price
 
 
 # ==========================================
@@ -261,7 +186,7 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung (Zwei-Wege-Synchronisation)
+# Max. Entfernung (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
@@ -269,10 +194,11 @@ with col_dist_input:
         "KM Input", 
         min_value=10, 
         max_value=2000, 
+        value=st.session_state.max_dist_val, 
         step=50, 
         label_visibility="collapsed",
         key="num_max_distance",
-        on_change=sync_dist_from_num,
+        on_change=sync_dist_input,
         help="Gib die maximale Entfernung in km ein und drücke ENTER zum Bestätigen."
     )
 with col_dist_slider:
@@ -280,15 +206,16 @@ with col_dist_slider:
         "Entfernung Slider",
         min_value=10,
         max_value=2000,
+        value=st.session_state.max_dist_val,
         step=50,
         label_visibility="collapsed",
         key="slider_max_distance",
-        on_change=sync_dist_from_slider,
+        on_change=sync_dist_slider,
         help="Ziehe den Regler, um den maximalen Radius in km anzupassen."
     )
-max_distance = st.session_state.slider_max_distance
+max_distance = st.session_state.max_dist_val
 
-# Max. Preis (Zwei-Wege-Synchronisation)
+# Max. Preis (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
@@ -296,10 +223,11 @@ with col_price_input:
         "EUR Input",
         min_value=0,
         max_value=1000,
+        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
         key="num_max_price",
-        on_change=sync_price_from_num,
+        on_change=sync_price_input,
         help="Gib den maximalen Ticketpreis in € ein und drücke ENTER zum Bestätigen."
     )
 with col_price_slider:
@@ -307,13 +235,14 @@ with col_price_slider:
         "Preis Slider",
         min_value=0,
         max_value=1000,
+        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
         key="slider_max_price",
-        on_change=sync_price_from_slider,
+        on_change=sync_price_slider,
         help="Ziehe den Regler, um das maximale Ticketbudget festzulegen."
     )
-max_price = st.session_state.slider_max_price
+max_price = st.session_state.max_price_val
 
 selected_countries = st.sidebar.multiselect(
     "Länder:",
