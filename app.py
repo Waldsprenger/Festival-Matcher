@@ -82,7 +82,7 @@ st.markdown(
 
 
 # ==========================================
-# 2. SCHNELLE HILFSFUNKTIONEN & CACHING
+# 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
@@ -95,10 +95,8 @@ def load_data():
     with open("festivals.json", "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Einmalige Daten-Transformation für maximale Performance
     processed = []
     for f in data:
-        # Preis parsen
         preis_str = f.get("preis", "")
         p_val = 0.0
         if preis_str:
@@ -106,7 +104,6 @@ def load_data():
             if match:
                 p_val = float(match.group(1).replace(",", "."))
 
-        # Datum parsen
         datum_str = f.get("datum", "")
         s_date = None
         if datum_str:
@@ -125,19 +122,38 @@ def load_data():
     return processed, last_updated
 
 
-# Schnelles Geocoding mit Streamlit-Cache (verhindert ständige Re-Requests)
 @st.cache_data(ttl="7d", show_spinner=False)
 def get_user_coordinates(plz, land="Deutschland"):
     if not plz:
         return None, None
     try:
-        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v4")
+        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v5")
         location = geolocator.geocode(f"{plz}, {land}", timeout=3)
         if location:
             return location.latitude, location.longitude
     except Exception:
         pass
     return None, None
+
+
+# Dynamische Zoom-Berechnung, damit der Radius auf der Karte nie oben/unten abgeschnitten ist
+def calculate_zoom_level(radius_km):
+    if radius_km <= 50:
+        return 9
+    elif radius_km <= 150:
+        return 8
+    elif radius_km <= 350:
+        return 7
+    elif radius_km <= 700:
+        return 6
+    elif radius_km <= 1500:
+        return 5
+    elif radius_km <= 3000:
+        return 4
+    elif radius_km <= 6000:
+        return 3
+    else:
+        return 2
 
 
 # ==========================================
@@ -153,9 +169,6 @@ all_countries = sorted(list(set([f["land"] for f in processed_data if f.get("lan
 all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
-max_price_in_data = (
-    max([f["preis_num"] for f in processed_data]) if processed_data else 500.0
-)
 
 # ==========================================
 # 4. SIDEBAR - FILTER & EINSTELLUNGEN
@@ -168,32 +181,32 @@ user_plz = st.sidebar.text_input(
     help="Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu berechnen.",
 )
 
-# Max. Entfernung Eingabe + Slider Synchronisation
+# Max. Entfernung bis 10.000 km
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
     max_distance_val = st.number_input(
-        "KM", min_value=10, max_value=1000, value=300, step=10, label_visibility="collapsed"
+        "KM", min_value=10, max_value=10000, value=300, step=50, label_visibility="collapsed"
     )
 with col_dist_slider:
     max_distance = st.slider(
         "Entfernung Slider",
         min_value=10,
-        max_value=1000,
+        max_value=10000,
         value=int(max_distance_val),
-        step=10,
+        step=50,
         label_visibility="collapsed",
     )
 
-# Max. Preis Eingabe + Slider Synchronisation
+# Max. Preis bis 1.000 €
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
     max_price_val = st.number_input(
         "EUR",
         min_value=0,
-        max_value=int(max_price_in_data) + 50,
-        value=int(max_price_in_data) + 50,
+        max_value=1000,
+        value=1000,
         step=10,
         label_visibility="collapsed",
     )
@@ -201,7 +214,7 @@ with col_price_slider:
     max_price = st.slider(
         "Preis Slider",
         min_value=0,
-        max_value=int(max_price_in_data) + 50,
+        max_value=1000,
         value=int(max_price_val),
         step=10,
         label_visibility="collapsed",
@@ -250,12 +263,11 @@ for f in processed_data:
         dist = geodesic((user_lat, user_lon), (f_lat, f_lon)).km
         f["entfernung_km"] = round(dist, 1)
     else:
-        f["entfernung_km"] = 9999.0
+        f["entfernung_km"] = 99999.0
 
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
-# Pool an verfügbaren Bands aus allen vorgefilterten Festivals
 available_bands = sorted(
     list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
 )
@@ -301,24 +313,24 @@ for f in filtered_festivals:
     else:
         score_pct = 0.0
 
-    # Nur Festivals mit Match > 0% berücksichtigen
     if score_pct > 0.0:
         f_copy = f.copy()
         f_copy["match_score"] = score_pct
         scored_festivals.append(f_copy)
 
-# Sortieren nach Match-Score, Entfernung, Preis
 scored_festivals = sorted(
     scored_festivals,
     key=lambda x: (-x["match_score"], x["entfernung_km"], x["preis_num"]),
 )
 
 # ==========================================
-# 8. KARTEN-ANZEIGE (NUR MATCH-ERGEBNISSE!)
+# 8. KARTEN-ANZEIGE (NUR MATCH-ERGEBNISSE & DYNAMISCHER ZOOM)
 # ==========================================
 with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     if user_lat and user_lon:
-        m = folium.Map(location=[user_lat, user_lon], zoom_start=6)
+        # Dynamischen Zoom-Level abhängig von der Entfernung setzen
+        calculated_zoom = calculate_zoom_level(max_distance)
+        m = folium.Map(location=[user_lat, user_lon], zoom_start=calculated_zoom)
 
         # Suchradius
         folium.Circle(
@@ -338,7 +350,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
             icon=folium.Icon(color="red", icon="home"),
         ).add_to(m)
 
-        # EXKLUSIV: Nur Marker der gefilterten Match-Ergebnisse anzeigen
+        # Nur Marker der gefilterten Match-Ergebnisse anzeigen
         for f in scored_festivals:
             if f.get("lat") and f.get("lon"):
                 f_name_clean = html.escape(f["name"])
@@ -351,7 +363,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
                     icon=folium.Icon(color="black", icon="music"),
                 ).add_to(m)
 
-        st_folium(m, width="100%", height=350, key="festival_map")
+        st_folium(m, width="100%", height=500, key="festival_map")
     else:
         st.warning(
             "Konnte Standort für die eingegebene PLZ nicht bestimmen."
@@ -378,7 +390,7 @@ else:
 
         dist_display = (
             f"{f['entfernung_km']} km"
-            if f["entfernung_km"] < 9999.0
+            if f["entfernung_km"] < 99999.0
             else "Unbekannt"
         )
 
