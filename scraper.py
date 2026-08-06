@@ -82,46 +82,44 @@ def get_coordinates_safe(plz, land, ort):
     PLZ_CACHE[cache_key] = {"lat": None, "lon": None}
     return None, None
 
-def extract_official_website(soup):
+def extract_official_website(soup, detail_url=""):
     """
-    Sucht gezielt nach der Tabelle mit <td><strong>Website:</strong></td> 
-    und greift sich dort den href-Link ab.
+    Sucht gezielt nach der offiziellen Festival-Webseite und schließt
+    Social-Media-Links (Facebook, Instagram, etc.) konsequent aus.
     """
-    # 1. Gezieltes Matching für die HTML-Struktur der 3 Beispiele
-    for td in soup.find_all("td"):
-        if "Website:" in td.text:
-            next_td = td.find_next_sibling("td")
-            if next_td:
-                a_tag = next_td.find("a", href=True)
-                if a_tag:
-                    return a_tag["href"].strip()
+    # 1. Blacklist für Unerwünschte Domains & Social Media
+    blocked_domains = [
+        "facebook.com", "fb.com", "instagram.com", "twitter.com", 
+        "x.com", "youtube.com", "tiktok.com", "spotify.com",
+        "festival-checker.de", "festivalticker.de", "google.com"
+    ]
 
-    # 2. Fallback: Suche nach <tr> in denen "Website:" irgendwo im Text steht
-    for tr in soup.find_all("tr"):
-        if "Website:" in tr.text:
-            a_tag = tr.find("a", href=True)
-            if a_tag:
-                return a_tag["href"].strip()
+    candidates = []
 
-    # 3. Allgemeiner Fallback für externe Links (keine Social Media)
-    candidate_links = []
+    # 2. Alle Links in der HTML-Struktur durchsuchen
     for a in soup.find_all("a", href=True):
-        href = a["href"]
+        href = a["href"].strip()
         text = clean_text(a.text).lower()
-        
-        if href.startswith("#") or "festival-checker" in href or "festivalticker" in href:
+
+        # Relative Links ignorieren (müssen externe URLs mit http/https sein)
+        if not href.startswith("http://") and not href.startswith("https://"):
             continue
-            
-        if any(kw in text for kw in ["homepage", "webseite", "official", "site"]):
-            if "facebook.com" not in href and "instagram.com" not in href:
-                return href
 
-        if href.startswith("http") and "facebook.com" not in href and "instagram.com" not in href and "twitter.com" not in href:
-            candidate_links.append(href)
+        # Prüfen, ob eine geblockte Domain im Link vorkommt
+        if any(domain in href.lower() for domain in blocked_domains):
+            continue
 
-    if candidate_links:
-        return candidate_links[0]
-        
+        # Prio 1: Der Link steht in einer Zelle/Zeile mit "Website" oder der Linktext heißt so
+        parent_text = clean_text(a.parent.text).lower() if a.parent else ""
+        if "website" in text or "website" in parent_text or "homepage" in text:
+            return href
+
+        candidates.append(href)
+
+    # 3. Falls kein explizites "Website:"-Label gefunden wurde, nimm den ersten validen externen Link
+    if candidates:
+        return candidates[0]
+
     return ""
 
 def scrape_festival_checker():
@@ -150,21 +148,28 @@ def scrape_festival_checker():
                 continue
             name = clean_text(name_el.text)
             
+            # Detail-URL ermitteln
             link_el = card.find("a", href=True)
-            detail_url = link_el["href"] if link_el else ""
+            detail_url = ""
+            if link_el:
+                detail_url = link_el["href"].strip()
+                if not detail_url.startswith("http"):
+                    detail_url = "https://www.festival-checker.de" + detail_url
 
-            # Wenn eine Detailseite existiert, rufen wir diese auf, um die exakte Website aus der Tabelle auszulesen
             webseite = ""
-            if detail_url.startswith("http"):
+            
+            # Zwingend die Detailseite aufrufen, da auf der Übersichtsseite meist keine Homepage-Links stehen
+            if detail_url and "festival-checker.de" in detail_url:
                 try:
+                    time.sleep(0.5) # Schonend für den Server
                     detail_resp = requests.get(detail_url, headers=headers, timeout=10)
                     if detail_resp.status_code == 200:
                         detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                        webseite = extract_official_website(detail_soup)
-                except Exception:
-                    pass
+                        webseite = extract_official_website(detail_soup, detail_url)
+                except Exception as e:
+                    print(f"    [!] Fehler beim Aufrufen der Detailseite ({detail_url}): {e}")
 
-            # Falls auf der Detailseite keine gefunden wurde, Fallback auf die Karte selbst
+            # Fallback, falls auf der Detailseite nichts gefunden wurde
             if not webseite:
                 webseite = extract_official_website(card)
 
