@@ -94,7 +94,7 @@ st.markdown(
 # ==========================================
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Schnelle Entfernungsberechnung in km (Haversine-Formel)."""
-    R = 6371.0  # Erdradius in km
+    R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = (
@@ -158,14 +158,14 @@ def load_data():
 
 @st.cache_data(ttl="7d", show_spinner=False)
 def get_user_coordinates(plz, land="Deutschland"):
-    if not plz or not plz.strip():
+    if not plz or not str(plz).strip():
         return None, None
     try:
-        geolocator = Nominatim(user_agent="rock_festival_matcher_app_v8")
-        location = geolocator.geocode(f"{plz.strip()}, {land}", timeout=5)
+        geolocator = Nominatim(user_agent="rock_festival_matcher_app_v9", timeout=3)
+        location = geolocator.geocode(f"{str(plz).strip()}, {land}")
         if location:
             return location.latitude, location.longitude
-    except (GeocoderServiceError, Exception):
+    except Exception:
         pass
     return None, None
 
@@ -193,6 +193,12 @@ if "max_price" not in st.session_state:
 if "selected_min_date" not in st.session_state:
     st.session_state.selected_min_date = datetime.now().date()
 
+if "user_coords" not in st.session_state:
+    st.session_state.user_coords = (None, None)
+
+if "active_plz" not in st.session_state:
+    st.session_state.active_plz = ""
+
 
 def sync_dist_input():
     st.session_state.max_distance = st.session_state.dist_input
@@ -216,12 +222,31 @@ def set_date_to_today():
 # ==========================================
 st.sidebar.title("🤘 FESTIVAL FILTER")
 
-user_plz = st.sidebar.text_input(
+user_plz_input = st.sidebar.text_input(
     "Deine PLZ:",
-    value="12345",
+    value=st.session_state.active_plz,
     key="input_user_plz",
-    help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
+    help="Gib deine Postleitzahl ein und klicke auf 'Ort suchen'."
 )
+
+selected_countries = st.sidebar.multiselect(
+    "Länder:",
+    options=all_countries,
+    default=all_countries,
+    key="multiselect_countries"
+)
+
+# Button zur expliziten Geocoding-Auslösung (verhindert automatisches Blockieren)
+if st.sidebar.button("📍 Ort suchen"):
+    country_param = selected_countries[0] if selected_countries else "Deutschland"
+    with st.spinner("Standort wird ermittelt..."):
+        coords = get_user_coordinates(user_plz_input, country_param)
+        st.session_state.user_coords = coords
+        st.session_state.active_plz = user_plz_input
+        if coords == (None, None) and user_plz_input.strip():
+            st.sidebar.error("PLZ konnte nicht gefunden werden.")
+
+user_lat, user_lon = st.session_state.user_coords
 
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
@@ -275,13 +300,6 @@ with col_price_slider:
     )
 max_price = st.session_state.max_price
 
-selected_countries = st.sidebar.multiselect(
-    "Länder:",
-    options=all_countries,
-    default=all_countries,
-    key="multiselect_countries"
-)
-
 col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
 with col_date_picker:
     min_date = st.date_input(
@@ -309,9 +327,6 @@ selected_genres = st.sidebar.multiselect(
 # ==========================================
 # 5. ERSTE FILTERUNG DER DATENBASIS
 # ==========================================
-country_param = selected_countries[0] if selected_countries else "Deutschland"
-user_lat, user_lon = get_user_coordinates(user_plz, country_param)
-
 filtered_festivals = []
 for f in processed_data:
     if selected_countries and f.get("land") not in selected_countries:
@@ -329,14 +344,14 @@ for f in processed_data:
 
     f_lat, f_lon = f.get("lat"), f.get("lon")
     if user_lat is not None and user_lon is not None and f_lat and f_lon:
-        # Nutzung der ultraschnellen Haversine-Formel
         dist = haversine_distance(user_lat, user_lon, f_lat, f_lon)
         f["entfernung_km"] = round(dist, 1)
+        if f["entfernung_km"] > max_distance:
+            continue
     else:
         f["entfernung_km"] = 99999.0
 
-    if f["entfernung_km"] <= max_distance:
-        filtered_festivals.append(f)
+    filtered_festivals.append(f)
 
 # Extraktion der verfügbaren Bands
 available_bands = sorted(
@@ -418,7 +433,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
 
         folium.Marker(
             [user_lat, user_lon],
-            popup=f"Dein Standort ({html.escape(user_plz)})",
+            popup=f"Dein Standort ({html.escape(st.session_state.active_plz)})",
             icon=folium.Icon(color="red", icon="home"),
         ).add_to(m)
 
@@ -447,7 +462,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
 
         st_folium(m, width="100%", height=500, returned_objects=[])
     else:
-        st.warning("Konnte Standort für die eingegebene PLZ nicht bestimmen.")
+        st.info("Gib in der Sidebar deine PLZ ein und klicke auf '📍 Ort suchen', um die Karte mit Entfernungsfilter zu aktivieren.")
 
 # ==========================================
 # 9. ERGEBNIS-ANZEIGE MIT AUFKLAPPBAREM LINEUP
@@ -475,7 +490,7 @@ else:
         dist_display = (
             f"{f['entfernung_km']} km"
             if f["entfernung_km"] < 99999.0
-            else "Unbekannt"
+            else "Kein Standort gewählt"
         )
 
         st.markdown(
@@ -498,7 +513,6 @@ else:
 
         with st.expander(f"📋 Vollständiges Lineup für {f['name']} anzeigen ({len(f_bands)} Bands)", expanded=False):
             if f_bands:
-                # Alphabetische Sortierung des Lineups
                 sorted_lineup = sorted(f_bands, key=lambda x: x.lower())
                 st.write(", ".join([f"**{b}**" if b.lower() in [sb.lower() for sb in selected_bands] else b for b in sorted_lineup]))
             else:
