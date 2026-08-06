@@ -4,6 +4,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
@@ -193,6 +194,7 @@ def clean_band_name(name: str) -> str:
     if not name:
         return ""
     
+    # Vorangestellte / nachgestellte Uhrzeiten & Zeitspannen bereinigen
     cleaned = re.sub(r"^\s*(\d{1,2}[:.]\d{2}\s*(Uhr)?\s*(-|bis)?\s*(\d{1,2}[:.]\d{2}\s*(Uhr)?)?|\d{1,2}\s*Uhr)\s*[-:]?\s*", "", name, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"\s*[\(\[\{]?\s*\d{1,2}[:.]\d{2}\s*(Uhr)?\s*[\)\]\}]?\s*$", "", cleaned, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"\s*[\(\[\{].*?[\)\]\}]", "", cleaned).strip()
@@ -203,6 +205,43 @@ def clean_band_name(name: str) -> str:
     if cleaned.lower() in ["und weitere", "und viele mehr", "u.a.", "u.v.m.", "und viele weitere"]:
         return ""
     return cleaned
+
+
+def deduplicate_band_list(band_list: List[str]) -> List[str]:
+    """
+    Führt Bandnamen zusammen, die sich nur minimal unterscheiden (Case-Insensitive oder 1-2 Zeichen).
+    Beispiel: 'Ok Kid' & 'OK Kid' -> 'OK Kid'
+    """
+    unique_bands: List[str] = []
+    
+    for band in band_list:
+        if not band:
+            continue
+            
+        matched_existing = None
+        for existing in unique_bands:
+            # 1. Exakter Match ohne Case (z. B. "Ok Kid" vs "OK Kid")
+            if band.lower() == existing.lower():
+                matched_existing = existing
+                break
+            
+            # 2. Fuzzy-Match für Abweichungen von 1-2 Buchstaben bei längeren Bandnamen
+            len_diff = abs(len(band) - len(existing))
+            if len_diff <= 2 and min(len(band), len(existing)) > 4:
+                similarity = SequenceMatcher(None, band.lower(), existing.lower()).ratio()
+                if similarity >= 0.90:
+                    matched_existing = existing
+                    break
+        
+        if matched_existing:
+            # Bevorzuge Großschreibung wie "OK Kid" gegenüber "Ok Kid"
+            if sum(1 for c in band if c.isupper()) > sum(1 for c in matched_existing if c.isupper()):
+                idx = unique_bands.index(matched_existing)
+                unique_bands[idx] = band
+        else:
+            unique_bands.append(band)
+            
+    return unique_bands
 
 
 def map_genres_to_main_categories(subgenres: List[str]) -> List[str]:
@@ -289,7 +328,7 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # PRÜFUNG AUF ABSAGE BEINHALTET JETZT CLASS="line-through"
+    # Absage-Erkennung
     has_strike = bool(
         soup.find_all(["strike", "del"])
         or soup.find_all(class_=re.compile(r"\bline-through\b", re.I))
@@ -427,8 +466,10 @@ def parse_festival_page(url: str) -> Dict[str, Any]:
                 raw_bands = raw_bands.split("zum kompletten Programm")[0]
 
             raw_list = [b.strip() for b in raw_bands.split(",") if b.strip()]
-            cleaned_list = [clean_band_name(b) for b in raw_list]
-            data["lineup"] = [b for b in cleaned_list if b]
+            cleaned_list = [clean_band_name(b) for b in raw_list if clean_band_name(b)]
+            
+            # Ähnliche / doppelte Bands zusammenführen
+            data["lineup"] = deduplicate_band_list(cleaned_list)
 
     # Geocoding
     lat, lon = get_coordinates_safe(data.get("plz"), data.get("land", "Deutschland"), data.get("ort"))
