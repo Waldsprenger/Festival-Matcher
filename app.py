@@ -106,21 +106,7 @@ def load_data():
 
         datum_str = f.get("datum", "")
         s_date = None
-        if datum_str:
-            match_d = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
-            if match_d:
-                try:
-                    s_date = datetime.strptime(match_d.group(1), "%d.%m.%Y").date()
-                except ValueError:
-                    s_date = None
-
-        item = f.copy()
-        item["preis_num"] = p_val
-        item["start_datum"] = s_date
-        # Datum parsen
-        datum_str = f.get("datum", "")
-        s_date = None
-        is_one_day = True # Standardmäßig gehen wir von einem Tag aus
+        is_one_day = True
         
         if datum_str:
             match_d = re.search(r"(\d{2}\.\d{2}\.\d{4})", datum_str)
@@ -129,15 +115,13 @@ def load_data():
                     s_date = datetime.strptime(match_d.group(1), "%d.%m.%Y").date()
                 except ValueError:
                     s_date = None
-            
-            # Wenn ein Bindestrich im Datumstext ist, ist es mehrtägig (z.B. "12.08. - 14.08.")
-            if "-" in datum_str:
+            if "-" in datum_str or " bis " in datum_str.lower():
                 is_one_day = False
 
         item = f.copy()
         item["preis_num"] = p_val
         item["start_datum"] = s_date
-        item["is_one_day"] = is_one_day # NEU: Boolean-Wert speichern
+        item["is_one_day"] = is_one_day
         processed.append(item)
 
     return processed, last_updated
@@ -148,33 +132,13 @@ def get_user_coordinates(plz, land="Deutschland"):
     if not plz:
         return None, None
     try:
-        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v5")
+        geolocator = Nominatim(user_agent="rock_festival_matcher_user_v6")
         location = geolocator.geocode(f"{plz}, {land}", timeout=3)
         if location:
             return location.latitude, location.longitude
     except Exception:
         pass
     return None, None
-
-
-# Dynamische Zoom-Berechnung, damit der Radius auf der Karte nie oben/unten abgeschnitten ist
-def calculate_zoom_level(radius_km):
-    if radius_km <= 50:
-        return 9
-    elif radius_km <= 150:
-        return 8
-    elif radius_km <= 350:
-        return 7
-    elif radius_km <= 700:
-        return 6
-    elif radius_km <= 1500:
-        return 5
-    elif radius_km <= 3000:
-        return 4
-    elif radius_km <= 6000:
-        return 3
-    else:
-        return 2
 
 
 # ==========================================
@@ -191,6 +155,25 @@ all_genres = sorted(
     list(set([g for f in processed_data for g in f.get("obergruppen_genre", []) if g]))
 )
 
+# Session-State-Initialisierung für Slider & Text-Inputs (für synchrone Enter-Tasten-Bestätigung)
+if "max_dist_val" not in st.session_state:
+    st.session_state.max_dist_val = 300
+if "max_price_val" not in st.session_state:
+    st.session_state.max_price_val = 1000
+
+def sync_dist_input():
+    st.session_state.max_dist_val = st.session_state.num_max_distance
+
+def sync_dist_slider():
+    st.session_state.max_dist_val = st.session_state.slider_max_distance
+
+def sync_price_input():
+    st.session_state.max_price_val = st.session_state.num_max_price
+
+def sync_price_slider():
+    st.session_state.max_price_val = st.session_state.slider_max_price
+
+
 # ==========================================
 # 4. SIDEBAR - FILTER & EINSTELLUNGEN
 # ==========================================
@@ -200,82 +183,95 @@ user_plz = st.sidebar.text_input(
     "Deine PLZ:",
     value="12345",
     key="input_user_plz",
-    help="Gib deine Postleitzahl ein, um Entfernungen zu Festivals zu berechnen.",
+    help="Gib deine Postleitzahl ein, um Entfernungen zu den Festivals zu berechnen."
 )
 
-# Max. Entfernung bis 2.000 km
+# Max. Entfernung (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
 st.sidebar.markdown("**Max. Entfernung (km):**")
 col_dist_input, col_dist_slider = st.sidebar.columns([1, 2])
 with col_dist_input:
-    max_distance_val = st.number_input(
-        "KM", 
+    st.number_input(
+        "KM Input", 
         min_value=10, 
         max_value=2000, 
-        value=300, 
+        value=st.session_state.max_dist_val, 
         step=50, 
         label_visibility="collapsed",
-        key="num_max_distance"
+        key="num_max_distance",
+        on_change=sync_dist_input,
+        help="Gib die maximale Entfernung in km ein und drücke ENTER zum Bestätigen."
     )
 with col_dist_slider:
-    max_distance = st.slider(
+    st.slider(
         "Entfernung Slider",
         min_value=10,
         max_value=2000,
-        value=int(max_distance_val),
+        value=st.session_state.max_dist_val,
         step=50,
         label_visibility="collapsed",
-        key="slider_max_distance"
+        key="slider_max_distance",
+        on_change=sync_dist_slider,
+        help="Ziehe den Regler, um den maximalen Radius in km anzupassen."
     )
+max_distance = st.session_state.max_dist_val
 
-# Max. Preis bis 1.000 €
+# Max. Preis (Tastatur-Eingabe mit Enter-Taste + Schieberegler)
 st.sidebar.markdown("**Max. Preis (€):**")
 col_price_input, col_price_slider = st.sidebar.columns([1, 2])
 with col_price_input:
-    max_price_val = st.number_input(
-        "EUR",
+    st.number_input(
+        "EUR Input",
         min_value=0,
         max_value=1000,
-        value=1000,
+        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
-        key="num_max_price"
+        key="num_max_price",
+        on_change=sync_price_input,
+        help="Gib den maximalen Ticketpreis in € ein und drücke ENTER zum Bestätigen."
     )
 with col_price_slider:
-    max_price = st.slider(
+    st.slider(
         "Preis Slider",
         min_value=0,
         max_value=1000,
-        value=int(max_price_val),
+        value=st.session_state.max_price_val,
         step=10,
         label_visibility="collapsed",
-        key="slider_max_price"
+        key="slider_max_price",
+        on_change=sync_price_slider,
+        help="Ziehe den Regler, um das maximale Ticketbudget festzulegen."
     )
+max_price = st.session_state.max_price_val
 
 selected_countries = st.sidebar.multiselect(
     "Länder:",
     options=all_countries,
     default=all_countries,
-    key="multiselect_countries"
+    key="multiselect_countries",
+    help="Wähle die Länder aus, in denen du Festivals suchen möchtest."
 )
 
 min_date = st.sidebar.date_input(
     "Festival-Start ab:",
     value=datetime.today().date(),
-    key="date_min_start"
+    key="date_min_start",
+    help="Filtert Festivals heraus, die vor diesem Datum beginnen."
 )
 
 show_one_day = st.sidebar.toggle(
     "Eintagesfestivals anzeigen",
     value=True,
     key="toggle_one_day_festivals",
-    help="Deaktiviere diesen Schalter, um nur mehrtägige Festivals anzuzeigen."
+    help="Schalte diesen Schalter aus, um nur mehrtägige Festivals anzuzeigen."
 )
 
 selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
     default=[],
-    key="multiselect_genres"  # <--- Eindeutiger Key behebt den Fehler!
+    key="multiselect_genres",
+    help="Schränkt die Festivalauswahl und das Band-Angebot auf bestimmte Musikrichtungen ein."
 )
 
 # ==========================================
@@ -294,11 +290,8 @@ for f in processed_data:
         continue
     if f["start_datum"] and f["start_datum"] < min_date:
         continue
-        
-    # NEU: Herausfiltern, wenn Toggle aus ist und es ein Eintagesfestival ist
     if not show_one_day and f.get("is_one_day", True):
         continue
-        
     if selected_genres:
         f_genres = f.get("obergruppen_genre", [])
         if not any(g in f_genres for g in selected_genres):
@@ -328,7 +321,8 @@ st.subheader("🎤 Wähle deine Lieblings-Bands")
 selected_bands = st.multiselect(
     "Suche & wähle Bands:",
     options=available_bands,
-    help="Wähle deine Lieblingsbands aus.",
+    key="multiselect_bands",
+    help="Gib hier Bandnamen ein oder wähle sie aus der Liste der verfügbaren Bands aus."
 )
 
 band_weights = {}
@@ -339,7 +333,11 @@ if selected_bands:
         col = cols[idx % 4]
         with col:
             st.markdown(f"<div class='weight-card'><b>{band}</b></div>", unsafe_allow_html=True)
-            double_weight = st.toggle(f"2x Gewichtung", key=f"weight_{band}")
+            double_weight = st.toggle(
+                "2x Gewichtung", 
+                key=f"weight_{band}",
+                help=f"Aktivieren, um '{band}' im Match-Algorithmus doppelt so stark zu gewichten."
+            )
             band_weights[band] = 2.0 if double_weight else 1.0
 
 # ==========================================
@@ -370,7 +368,7 @@ scored_festivals = sorted(
 )
 
 # ==========================================
-# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS BIS 2000 KM)
+# 8. KARTEN-ANZEIGE (AUTO-ZOOM AUF RADIUS)
 # ==========================================
 with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
     if user_lat and user_lon:
@@ -407,7 +405,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
                     icon=folium.Icon(color="black", icon="music"),
                 ).add_to(m)
 
-        # Auto-Zoom: Exakte Bounding Box für maximal 2000 km berechnen
+        # Auto-Zoom: Exakte Bounding Box berechnen
         lat_delta = max_distance / 111.0
         south = max(-85.0, user_lat - lat_delta)
         north = min(85.0, user_lat + lat_delta)
@@ -419,6 +417,7 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
         st_folium(m, width="100%", height=500, key="festival_map")
     else:
         st.warning("Konnte Standort für die eingegebene PLZ nicht bestimmen.")
+
 # ==========================================
 # 9. ERGEBNIS-ANZEIGE
 # ==========================================
