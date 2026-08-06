@@ -103,7 +103,8 @@ def load_data():
     mod_time = os.path.getmtime("festivals.json")
     last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
 
-    with open("festivals.json", "r", encoding="utf-8") as f:
+    try:
+        with open("festivals.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as e:
         st.error(f"Fehler beim Laden der Festivaldaten: {e}")
