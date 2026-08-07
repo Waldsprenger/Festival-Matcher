@@ -90,6 +90,11 @@ st.markdown(
 )
 
 
+def normalize_band_key(name: str) -> str:
+    """Normalisiert Bandnamen für den Vergleich."""
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
 # ==========================================
 # 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
@@ -106,6 +111,19 @@ def load_data():
             data = json.load(f)
     except Exception:
         return [], last_updated
+
+    # Zusätzlicher Laufzeit-Filter für doppelte Bandnamen
+    global_band_map = {}
+    for f in data:
+        for b in f.get("lineup", []):
+            key = normalize_band_key(b)
+            if key not in global_band_map:
+                global_band_map[key] = b
+            else:
+                # Wähle die bevorzugte Schreibweise (Großbuchstaben präferiert)
+                existing = global_band_map[key]
+                if sum(1 for c in b if c.isupper()) > sum(1 for c in existing if c.isupper()):
+                    global_band_map[key] = b
 
     processed = []
     for f in data:
@@ -134,6 +152,17 @@ def load_data():
                 is_one_day = False
 
         item = f.copy()
+        
+        # Harmonisiere Lineup anhand der Map
+        clean_lineup = []
+        seen = set()
+        for b in f.get("lineup", []):
+            canon = global_band_map.get(normalize_band_key(b), b)
+            if canon not in seen:
+                seen.add(canon)
+                clean_lineup.append(canon)
+
+        item["lineup"] = clean_lineup
         item["preis_num"] = p_val
         item["start_datum"] = s_date
         item["is_one_day"] = is_one_day
@@ -323,9 +352,10 @@ for f in processed_data:
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
-# Extraktion der verfügbaren Bands
+# Extraktion der verfügbaren Bands (vollständig dedupliziert)
 available_bands = sorted(
-    list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
+    list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band])),
+    key=lambda x: x.lower()
 )
 
 # ==========================================
@@ -483,7 +513,6 @@ else:
 
         with st.expander(f"📋 Vollständiges Lineup für {f['name']} anzeigen ({len(f_bands)} Bands)", expanded=False):
             if f_bands:
-                # Alphabetische Sortierung eingebaut
                 sorted_bands = sorted(f_bands, key=lambda x: x.lower())
                 st.write(", ".join([f"**{b}**" if b.lower() in [sb.lower() for sb in selected_bands] else b for b in sorted_bands]))
             else:
