@@ -1,8 +1,10 @@
-streamlit
-streamlit-folium
-folium
-pandas
-geopy
-requests
-beautifulsoup4
-urllib3
+streamlit>=1.30.0
+folium>=0.15.0
+streamlit-folium>=0.18.0
+pandas>=2.0.0
+geopy>=2.4.0
+
+# Optional: Falls dein Scraper-Skript HTTP-Requests oder HTML-Parsing nutzt,
+# entkienne die folgenden Zeilen bei Bedarf:
+# requests>=2.31.0
+# beautifulsoup4>=4.12.0
