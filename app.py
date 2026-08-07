@@ -4,12 +4,20 @@ import math
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 import folium
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderServiceError
+
+# ==========================================
+# 0. PFAD-KONFIGURATION
+# ==========================================
+BASE_DIR = Path(__file__).parent.resolve()
+JSON_PATH = BASE_DIR / "festivals.json"
 
 # ==========================================
 # 1. SEITEN-KONFIGURATION & ROCK-DESIGN (CSS)
@@ -54,7 +62,7 @@ st.markdown(
         border-left: 5px solid #FF2A2A;
         padding: 15px;
         border-radius: 5px;
-        margin-bottom: 15px;
+        margin-bottom: 5px;
     }
     .match-score {
         font-size: 24px;
@@ -83,109 +91,24 @@ st.markdown(
 
 
 # ==========================================
-# 2. HILFSFUNKTIONEN (NAME MAPPING & LEVENSHTEIN)
+# 2. HILFSFUNKTIONEN & CACHING
 # ==========================================
-def levenshtein_distance(s1: str, s2: str) -> int:
-    if len(s1) < len(s2):
-        return levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
-
-
-def normalize_band_name(name: str) -> str:
-    name_clean = re.sub(r"[^\w\s]", "", name, flags=re.UNICODE)
-    return " ".join(name_clean.lower().split())
-
-
-def build_band_mapping(all_bands: list) -> dict:
-    normalized_groups = {}
-    for original_name in all_bands:
-        norm = normalize_band_name(original_name)
-        if norm not in normalized_groups:
-            normalized_groups[norm] = []
-        normalized_groups[norm].append(original_name)
-
-    canonical_names = {}
-    for norm, original_list in normalized_groups.items():
-        best_name = max(original_list, key=lambda x: (sum(1 for c in x if c.isupper()), -len(x)))
-        canonical_names[norm] = best_name
-
-    distinct_norms = list(canonical_names.keys())
-    mapping = {}
-
-    for i in range(len(distinct_norms)):
-        norm_i = distinct_norms[i]
-        if norm_i in mapping:
-            continue
-
-        target_norm = norm_i
-        for j in range(i + 1, len(distinct_norms)):
-            norm_j = distinct_norms[j]
-            if norm_j in mapping:
-                continue
-
-            dist = levenshtein_distance(norm_i, norm_j)
-            max_len = max(len(norm_i), len(norm_j))
-
-            if (max_len <= 5 and dist <= 1) or (max_len > 5 and dist <= 2):
-                mapping[norm_j] = canonical_names[target_norm]
-
-        mapping[norm_i] = canonical_names[target_norm]
-
-    final_mapping = {}
-    for original_name in all_bands:
-        norm = normalize_band_name(original_name)
-        final_mapping[original_name] = mapping.get(norm, original_name)
-
-    return final_mapping
-
-
-def canonicalize_lineups(data: list) -> list:
-    all_bands = [band for f in data for band in f.get("lineup", []) if band]
-    mapping = build_band_mapping(all_bands)
-
-    for f in data:
-        if "lineup" in f and f["lineup"]:
-            new_lineup = []
-            for band in f["lineup"]:
-                canonical = mapping.get(band, band)
-                if canonical not in new_lineup:
-                    new_lineup.append(canonical)
-            f["lineup"] = new_lineup
-    return data
-
-
 @st.cache_data(ttl="24h", show_spinner=False)
 def load_data():
-    if not os.path.exists("festivals.json"):
+    if not JSON_PATH.exists():
         return [], "Unbekannt"
 
-    mod_time = os.path.getmtime("festivals.json")
+    mod_time = os.path.getmtime(JSON_PATH)
     last_updated = datetime.fromtimestamp(mod_time).strftime("%d.%m.%Y %H:%M Uhr")
 
     try:
-        with open("festivals.json", "r", encoding="utf-8") as f:
+        with open(JSON_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
         return [], last_updated
 
-    # Bandnamen zusammenführen
-    data = canonicalize_lineups(data)
-
     processed = []
     for f in data:
-        # FILTER: Abgesagte Festivals ausschließen
         if f.get("abgesagt", False):
             continue
 
@@ -225,10 +148,10 @@ def get_user_coordinates(plz, land="Deutschland"):
         return None, None
     try:
         geolocator = Nominatim(user_agent="rock_festival_matcher_app_v8")
-        location = geolocator.geocode(f"{plz}, {land}", timeout=8)
+        location = geolocator.geocode(f"{plz}, {land}", timeout=5)
         if location:
             return location.latitude, location.longitude
-    except Exception:
+    except (GeocoderServiceError, Exception):
         pass
     return None, None
 
@@ -253,8 +176,8 @@ if "max_distance" not in st.session_state:
 if "max_price" not in st.session_state:
     st.session_state.max_price = 500
 
-if "date_picker_value" not in st.session_state:
-    st.session_state.date_picker_value = datetime.now().date()
+if "selected_min_date" not in st.session_state:
+    st.session_state.selected_min_date = datetime.now().date()
 
 
 def sync_dist_input():
@@ -270,7 +193,8 @@ def sync_price_slider():
     st.session_state.max_price = st.session_state.price_slider
 
 def set_date_to_today():
-    st.session_state.date_picker_value = datetime.now().date()
+    st.session_state.selected_min_date = datetime.now().date()
+    st.rerun()
 
 
 # ==========================================
@@ -296,8 +220,7 @@ with col_dist_input:
         value=st.session_state.max_distance,
         label_visibility="collapsed",
         key="dist_input",
-        on_change=sync_dist_input,
-        help="Gib die maximale Entfernung in km ein."
+        on_change=sync_dist_input
     )
 with col_dist_slider:
     st.slider(
@@ -308,8 +231,7 @@ with col_dist_slider:
         value=st.session_state.max_distance,
         label_visibility="collapsed",
         key="dist_slider",
-        on_change=sync_dist_slider,
-        help="Ziehe den Regler, um den maximalen Radius in km anzupassen."
+        on_change=sync_dist_slider
     )
 max_distance = st.session_state.max_distance
 
@@ -324,8 +246,7 @@ with col_price_input:
         value=st.session_state.max_price,
         label_visibility="collapsed",
         key="price_input",
-        on_change=sync_price_input,
-        help="Gib den maximalen Ticketpreis in € ein."
+        on_change=sync_price_input
     )
 with col_price_slider:
     st.slider(
@@ -336,8 +257,7 @@ with col_price_slider:
         value=st.session_state.max_price,
         label_visibility="collapsed",
         key="price_slider",
-        on_change=sync_price_slider,
-        help="Ziehe den Regler, um das maximale Ticketbudget festzulegen."
+        on_change=sync_price_slider
     )
 max_price = st.session_state.max_price
 
@@ -345,52 +265,42 @@ selected_countries = st.sidebar.multiselect(
     "Länder:",
     options=all_countries,
     default=all_countries,
-    key="multiselect_countries",
-    help="Wähle die Länder aus, in denen du Festivals suchen möchtest."
+    key="multiselect_countries"
 )
 
 col_date_picker, col_date_btn = st.sidebar.columns([3, 1])
 with col_date_picker:
     min_date = st.date_input(
         "Festival-Start ab:",
-        value=st.session_state.date_picker_value,
-        key="date_picker_value",
-        help="Filtert Festivals heraus, die vor diesem Datum beginnen."
+        value=st.session_state.selected_min_date,
+        key="selected_min_date"
     )
 with col_date_btn:
     st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-    st.button(
-        "📅 Heute", 
-        on_click=set_date_to_today,
-        help="Setzt das Datum auf den heutigen Tag zurück."
-    )
+    st.button("📅 Heute", on_click=set_date_to_today)
 
 show_one_day = st.sidebar.toggle(
     "Eintagesfestivals anzeigen",
     value=True,
-    key="toggle_one_day_festivals",
-    help="Schalte diesen Schalter aus, um nur mehrtägige Festivals anzuzeigen."
+    key="toggle_one_day_festivals"
 )
 
 selected_genres = st.sidebar.multiselect(
     "Genres einschränken:",
     options=all_genres,
     default=[],
-    key="multiselect_genres",
-    help="Schränkt die Festivalauswahl und das Band-Angebot auf bestimmte Musikrichtungen ein."
+    key="multiselect_genres"
 )
 
 # ==========================================
 # 5. ERSTE FILTERUNG DER DATENBASIS
 # ==========================================
-user_lat, user_lon = get_user_coordinates(
-    user_plz,
-    selected_countries[0] if len(selected_countries) == 1 else "Deutschland",
-)
+country_param = selected_countries[0] if selected_countries else "Deutschland"
+user_lat, user_lon = get_user_coordinates(user_plz, country_param)
 
 filtered_festivals = []
 for f in processed_data:
-    if f.get("land") not in selected_countries:
+    if selected_countries and f.get("land") not in selected_countries:
         continue
     if f["preis_num"] > max_price:
         continue
@@ -413,6 +323,7 @@ for f in processed_data:
     if f["entfernung_km"] <= max_distance:
         filtered_festivals.append(f)
 
+# Extraktion der verfügbaren Bands
 available_bands = sorted(
     list(set([band for f in filtered_festivals for band in f.get("lineup", []) if band]))
 )
@@ -427,8 +338,7 @@ st.subheader("🎤 Wähle deine Lieblings-Bands")
 selected_bands = st.multiselect(
     "Suche & wähle Bands:",
     options=available_bands,
-    key="multiselect_bands",
-    help="Gib hier Bandnamen ein oder wähle sie aus der Liste der verfügbaren Bands aus."
+    key="multiselect_bands"
 )
 
 band_weights = {}
@@ -442,8 +352,7 @@ if selected_bands:
             st.markdown(f"<div class='weight-card'><b>{html.escape(band)}</b></div>", unsafe_allow_html=True)
             double_weight = st.toggle(
                 "2x Gewichtung", 
-                key=f"weight_{band}",
-                help=f"Aktivieren, um '{band}' im Match-Algorithmus doppelt so stark zu gewichten."
+                key=f"weight_{band}"
             )
             band_weights[band] = 2.0 if double_weight else 1.0
 
@@ -455,10 +364,11 @@ total_user_weight = sum(band_weights.values())
 
 for f in filtered_festivals:
     f_bands = f.get("lineup", [])
+    f_bands_lower = [b.lower() for b in f_bands]
 
     if total_user_weight > 0:
         matched_weight = sum(
-            [weight for band, weight in band_weights.items() if band in f_bands]
+            [weight for band, weight in band_weights.items() if band.lower() in f_bands_lower]
         )
         score_pct = round((matched_weight / total_user_weight) * 100, 1)
     else:
@@ -520,12 +430,12 @@ with st.expander("🗺️ Radius-Karte anzeigen", expanded=True):
 
         m.fit_bounds([[south, west], [north, east]])
 
-        st_folium(m, width="100%", height=500, key="festival_map")
+        st_folium(m, width="100%", height=500, returned_objects=[])
     else:
         st.warning("Konnte Standort für die eingegebene PLZ nicht bestimmen.")
 
 # ==========================================
-# 9. ERGEBNIS-ANZEIGE
+# 9. ERGEBNIS-ANZEIGE MIT AUFKLAPPBAREM LINEUP
 # ==========================================
 st.subheader(f"📊 Ergebnis: {len(scored_festivals)} Festivals gefunden")
 
@@ -535,9 +445,12 @@ elif not scored_festivals:
     st.info("Keine Festivals mit Übereinstimmungen gefunden. Passe deine Filter oder Band-Auswahl an!")
 else:
     for f in scored_festivals:
+        f_bands = f.get("lineup", [])
+        f_bands_lower = [b.lower() for b in f_bands]
+
         matching_bands_formatted = []
         for b in selected_bands:
-            if b in f.get("lineup", []):
+            if b.lower() in f_bands_lower:
                 escaped_b = html.escape(b)
                 if band_weights.get(b) == 2.0:
                     matching_bands_formatted.append(f'<span style="color: #FF2A2A; font-weight: bold;">⚡ {escaped_b} (2x)</span>')
@@ -568,13 +481,13 @@ else:
             unsafe_allow_html=True,
         )
 
-        # Alphabetisches Lineup im Ausklappmenü
-        sorted_full_lineup = sorted(f.get("lineup", []), key=lambda s: s.lower())
-        with st.expander(f"📋 Alphabetisches Line-up ({len(sorted_full_lineup)} Bands)"):
-            if sorted_full_lineup:
-                st.write(", ".join(sorted_full_lineup))
+        with st.expander(f"📋 Vollständiges Lineup für {f['name']} anzeigen ({len(f_bands)} Bands)", expanded=False):
+            if f_bands:
+                # Alphabetische Sortierung eingebaut
+                sorted_bands = sorted(f_bands, key=lambda x: x.lower())
+                st.write(", ".join([f"**{b}**" if b.lower() in [sb.lower() for sb in selected_bands] else b for b in sorted_bands]))
             else:
-                st.write("Keine Lineup-Informationen verfügbar.")
+                st.write("Kein Lineup verfügbar.")
 
 # ==========================================
 # 10. RECHTLICHE HINWEISE & IMPRESSUM
